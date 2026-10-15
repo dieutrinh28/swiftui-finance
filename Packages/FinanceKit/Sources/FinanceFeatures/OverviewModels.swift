@@ -104,7 +104,12 @@ public struct ReportOverview: Sendable {
     public let currency: CurrencyDefinition
     public let availableCurrencies: [CurrencyDefinition]
     public let cashFlow: CashFlowSummary
+    /// Spending per top-level category (sub-categories rolled up).
     public let expensesByCategory: [AmountShare]
+    /// For each top-level category with spending in sub-categories: the split.
+    public let subcategoryBreakdowns: [UUID: [AmountShare]]
+    /// Irregular expenses per top-level category (not part of spending).
+    public let irregularByCategory: [AmountShare]
     public let expensesByWallet: [AmountShare]
     /// Daily expenses with a running total across the period.
     public let dailyExpenses: [DailyAmount]
@@ -159,6 +164,12 @@ public final class ReportsModel {
                 availableCurrencies: available,
                 cashFlow: try ReportRules.cashFlow(snapshot, in: dayRange, currency: selected),
                 expensesByCategory: try ReportRules.expensesByCategory(snapshot, in: dayRange, currency: selected),
+                subcategoryBreakdowns: try Dictionary(uniqueKeysWithValues:
+                    ReportRules.categoriesWithSubcategorySpending(snapshot, in: dayRange, currency: selected).map { parent in
+                        (parent, try ReportRules.expensesWithin(parent, snapshot, in: dayRange, currency: selected))
+                    }
+                ),
+                irregularByCategory: try ReportRules.irregularExpensesByCategory(snapshot, in: dayRange, currency: selected),
                 expensesByWallet: try ReportRules.expensesByWallet(snapshot, in: dayRange, currency: selected),
                 dailyExpenses: try ReportRules.dailyExpenses(snapshot, in: range, currency: selected, policy: policy),
                 monthlyCashFlow: try ReportRules.cashFlowTrend(snapshot, periods: months, currency: selected, policy: policy),

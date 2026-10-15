@@ -5,7 +5,8 @@ import Foundation
 public struct MoneyFormatter: Sendable {
     public var locale: Locale
 
-    public init(locale: Locale = .autoupdatingCurrent) {
+    /// Defaults to the language chosen in the app (`AppLocalization.locale`).
+    public init(locale: Locale = AppLocalization.locale) {
         self.locale = locale
     }
 

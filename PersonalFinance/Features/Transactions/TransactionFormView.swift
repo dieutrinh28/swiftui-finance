@@ -16,7 +16,8 @@ struct TransactionFormView: View {
     let mode: Mode
 
     @Environment(AppContainer.self) private var app
-    @Query(filter: #Predicate<Wallet> { $0.archivedAt == nil }, sort: \Wallet.sortOrder)
+    /// Every wallet; the form offers only `WalletChoices.selectable` (archived ones never).
+    @Query(sort: \Wallet.sortOrder)
     private var wallets: [Wallet]
 
     @State private var model: TransactionFormModel?
@@ -24,7 +25,7 @@ struct TransactionFormView: View {
     var body: some View {
         Group {
             if let model {
-                TransactionFormContent(model: model, wallets: wallets)
+                TransactionFormContent(model: model, wallets: WalletChoices.selectable(from: wallets))
             } else {
                 ProgressView()
             }
@@ -40,6 +41,7 @@ struct TransactionFormView: View {
 
 private struct TransactionFormContent: View {
     @Bindable var model: TransactionFormModel
+    /// Active wallets only (`WalletChoices`).
     let wallets: [Wallet]
 
     @Environment(\.dismiss) private var dismiss
@@ -69,14 +71,18 @@ private struct TransactionFormContent: View {
                             .focused($amountFocused)
                     } else {
                         Text("Choose a wallet to enter the amount.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColor.textSecondary)
                     }
                 }
+                .surfaceRows()
 
                 if wallets.isEmpty {
                     Section {
-                        Button("Create a Wallet First") { showingNewWallet = true }
+                        Button("Add a Wallet First", systemImage: "plus") { showingNewWallet = true }
+                    } footer: {
+                        Text("Every transaction belongs to a wallet, such as cash or a bank account.")
                     }
+                    .surfaceRows()
                 } else if model.isTransfer {
                     transferSection
                 } else {
@@ -90,18 +96,20 @@ private struct TransactionFormContent: View {
                         TextField("Merchant or payee", text: $model.merchant)
                     }
                 }
+                .surfaceRows()
+            }
+            .appGroupedStyle()
+            .keyboardDismissal()
+            .safeAreaInset(edge: .bottom) {
+                PrimaryActionBar(title: saveTitle, isEnabled: model.canSave) {
+                    if model.save() { dismiss() }
+                }
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if model.save() { dismiss() }
-                    }
-                    .disabled(!model.canSave)
                 }
             }
             .onAppear {
@@ -119,10 +127,19 @@ private struct TransactionFormContent: View {
 
     private var title: String {
         switch (model.isEditing, model.isTransfer) {
-        case (false, false): String(localized: "New Transaction")
-        case (false, true): String(localized: "New Transfer")
-        case (true, false): String(localized: "Edit Transaction")
-        case (true, true): String(localized: "Edit Transfer")
+        case (false, false): String(localized: "New Transaction", bundle: .l10n)
+        case (false, true): String(localized: "New Transfer", bundle: .l10n)
+        case (true, false): String(localized: "Edit Transaction", bundle: .l10n)
+        case (true, true): String(localized: "Edit Transfer", bundle: .l10n)
+        }
+    }
+
+    private var saveTitle: LocalizedStringKey {
+        if model.isEditing { return "Save Changes" }
+        switch model.kind {
+        case .income: return "Save Income"
+        case .expense: return "Save Expense"
+        case .transfer: return "Save Transfer"
         }
     }
 
@@ -135,15 +152,21 @@ private struct TransactionFormContent: View {
             NavigationLink {
                 CategoryPickerView(type: model.requiredCategoryType, selection: $model.category)
             } label: {
-                LabeledContent("Category") {
-                    if let category = model.category {
-                        Label(category.name, systemImage: category.iconName)
-                    } else {
-                        Text("Required")
-                    }
+                CategoryFieldLabel(category: model.category)
+            }
+
+            if model.offersIrregular {
+                Toggle(isOn: $model.isIrregular) {
+                    Text("Irregular expense")
                 }
+                .tint(AppColor.accent)
+            }
+        } footer: {
+            if model.offersIrregular {
+                Text("For one-off costs such as a trip or a new laptop: they lower the balance but are not counted as spending or in budgets.")
             }
         }
+        .surfaceRows()
     }
 
     @ViewBuilder
@@ -152,8 +175,10 @@ private struct TransactionFormContent: View {
             walletPicker("From", selection: $model.wallet)
             walletPicker("To", selection: $model.destinationWallet)
         } footer: {
-            Text("A transfer moves money between your own wallets. It is not income or an expense.")
+            Label("A transfer moves money between your own wallets. It is not income or an expense.",
+                  systemImage: "arrow.left.arrow.right")
         }
+        .surfaceRows()
 
         if model.needsReceivedAmount, let destinationCurrency = model.destinationCurrency {
             Section {
@@ -162,11 +187,12 @@ private struct TransactionFormContent: View {
                 Text("Amount received")
             } footer: {
                 if let rate = model.impliedExchangeRate, let source = model.currency {
-                    Text("1 \(source.code) = \(rate.formatted(.number.precision(.fractionLength(0...6)))) \(destinationCurrency.code). The app never converts currencies on its own.")
+                    Text("1 \(source.code) = \(rate.formatted(.number.precision(.fractionLength(0...6)).locale(.app))) \(destinationCurrency.code). The app never converts currencies on its own.")
                 } else {
                     Text("The wallets use different currencies. Enter exactly what arrived; the app never converts on its own.")
                 }
             }
+            .surfaceRows()
         }
     }
 

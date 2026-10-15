@@ -18,20 +18,22 @@ struct TransactionListView: View {
         NavigationStack(path: app.router.binding(for: .transactions)) {
             Group {
                 if transactions.isEmpty {
-                    ContentUnavailableView {
-                        Label("No transactions yet", systemImage: "list.bullet.rectangle")
-                    } description: {
-                        Text("Income, expenses and transfers you record will appear here.")
-                    } actions: {
-                        Button("Add Transaction") { showingNewTransaction = true }
-                            .buttonStyle(.borderedProminent)
+                    EmptyStateView(
+                        systemImage: "list.bullet.rectangle",
+                        title: "No transactions yet",
+                        message: "Income, expenses and transfers you record will appear here."
+                    ) {
+                        Button("Add Transaction", systemImage: "plus") { showingNewTransaction = true }
+                            .buttonStyle(.appPrimary)
                     }
+                    .frame(maxHeight: .infinity)
                 } else if let model {
                     TransactionListContent(model: model, transactions: transactions)
                 } else {
                     ProgressView()
                 }
             }
+            .screenBackground()
             .navigationTitle("Transactions")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -67,14 +69,12 @@ private struct TransactionListContent: View {
         List {
             if model.query.activeFilterCount > 0 {
                 Section {
-                    HStack {
-                        Label("\(model.query.activeFilterCount) filters on", systemImage: "line.3.horizontal.decrease.circle.fill")
-                            .font(.subheadline)
-                        Spacer()
-                        Button("Clear") { model.clearFilters() }
-                            .font(.subheadline)
+                    ActiveFiltersBar(count: model.query.activeFilterCount) {
+                        model.clearFilters()
                     }
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: Spacing.xs, bottom: 0, trailing: Spacing.xs))
             }
             ForEach(sections) { section in
                 Section {
@@ -85,20 +85,29 @@ private struct TransactionListContent: View {
                     }
                 } header: {
                     Text(title(for: section))
+                        .font(.label.weight(.semibold))
+                        .foregroundStyle(AppColor.textSecondary)
+                        .textCase(nil)
+                        .accessibilityAddTraits(.isHeader)
                 }
+                .surfaceRows()
             }
         }
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(.compact)   // day groups sit closer than settings sections
+        .appGroupedStyle()
         .overlay {
             if sections.isEmpty {
-                ContentUnavailableView {
-                    Label("No matching transactions", systemImage: "magnifyingglass")
-                } description: {
-                    Text("Try other words or fewer filters.")
-                } actions: {
+                EmptyStateView(
+                    systemImage: "magnifyingglass",
+                    title: "No matching transactions",
+                    message: "Try other words or fewer filters."
+                ) {
                     Button("Clear Search and Filters") {
                         model.query.searchText = ""
                         model.clearFilters()
                     }
+                    .buttonStyle(.appSecondary)
                 }
             }
         }
@@ -138,16 +147,37 @@ private struct TransactionListContent: View {
 
     private func title(for section: TransactionListModel.Section) -> String {
         guard let start = section.start, let grouping = section.grouping else {
-            return String(localized: "\(section.transactions.count) results")
+            return String(localized: "\(section.transactions.count) results", bundle: .l10n)
         }
         switch grouping {
         case .month:
-            return start.formatted(.dateTime.month(.wide).year())
+            return start.formatted(.dateTime.month(.wide).year().locale(.app))
         case .day:
             let calendar = app.calendarPolicy.calendar
-            if calendar.isDateInToday(start) { return String(localized: "Today") }
-            if calendar.isDateInYesterday(start) { return String(localized: "Yesterday") }
-            return start.formatted(.dateTime.weekday(.wide).day().month(.wide).year())
+            if calendar.isDateInToday(start) { return String(localized: "Today", bundle: .l10n) }
+            if calendar.isDateInYesterday(start) { return String(localized: "Yesterday", bundle: .l10n) }
+            return start.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(.app))
+        }
+    }
+}
+
+/// Shows that filters are narrowing the list, with a one-tap way out.
+private struct ActiveFiltersBar: View {
+    let count: Int
+    let clear: () -> Void
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            Label("\(count) filter(s) on", systemImage: "line.3.horizontal.decrease")
+                .font(.label.weight(.medium))
+                .foregroundStyle(AppColor.accent)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
+                .background(AppColor.softBlue, in: Capsule())
+            Spacer(minLength: Spacing.sm)
+            Button("Clear All", action: clear)
+                .font(.label.weight(.medium))
+                .frame(minHeight: 44)
         }
     }
 }
@@ -155,17 +185,23 @@ private struct TransactionListContent: View {
 extension TransactionSort {
     var displayName: String {
         switch self {
-        case .newestFirst: String(localized: "Newest first")
-        case .oldestFirst: String(localized: "Oldest first")
-        case .largestFirst: String(localized: "Largest amount first")
-        case .smallestFirst: String(localized: "Smallest amount first")
+        case .newestFirst: String(localized: "Newest first", bundle: .l10n)
+        case .oldestFirst: String(localized: "Oldest first", bundle: .l10n)
+        case .largestFirst: String(localized: "Largest amount first", bundle: .l10n)
+        case .smallestFirst: String(localized: "Smallest amount first", bundle: .l10n)
         }
     }
 }
 
+/// One transaction: category icon, title, one line of detail and the signed
+/// amount, right-aligned so amounts line up down the list. A sub-category's
+/// parent leads the detail line ("Coffee" / "Food & Drinks · Momo"). The amount never
+/// truncates; the title gives way first.
 struct TransactionRow: View {
     let transaction: LedgerTransaction
     var showsWallet = true
+    /// Adds the day ("12 Oct") to the detail line, for lists not grouped by date.
+    var showsDate = false
     /// When shown inside a wallet, transfers are signed from that wallet's point of view.
     var perspective: Wallet? = nil
 
@@ -174,17 +210,24 @@ struct TransactionRow: View {
             IconBadge(systemName: iconName, tint: tint)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(title)
-                    .font(.body.weight(.medium))
+                    .font(.rowTitle)
+                    .foregroundStyle(AppColor.textPrimary)
+                    .lineLimit(1)
                 if !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.meta)
+                        .foregroundStyle(AppColor.textSecondary)
                         .lineLimit(1)
                 }
             }
+            // In a List, separators start under the text rather than under the icon.
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
             Spacer(minLength: Spacing.sm)
             amount
+                .layoutPriority(1)
         }
+        .padding(.vertical, Spacing.xs)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 
@@ -198,20 +241,23 @@ struct TransactionRow: View {
         } else if let amount = transaction.displayAmount, let kind = transaction.kind {
             MoneyText(money: amount, tone: kind.tone)
         } else {
-            Text("Invalid record")
-                .font(.footnote)
-                .foregroundStyle(AppColor.expense)
+            Label("Invalid record", systemImage: "exclamationmark.triangle")
+                .font(.meta)
+                .foregroundStyle(AppColor.negative)
         }
     }
 
     private var title: String {
         if transaction.kind == .transfer {
-            return String(localized: "Transfer")
+            return String(localized: "Transfer", bundle: .l10n)
         }
-        return transaction.category?.name ?? transaction.kind?.displayName ?? String(localized: "Unknown")
+        return transaction.category?.name ?? transaction.kind?.displayName ?? String(localized: "Unknown", bundle: .l10n)
     }
 
     private var subtitle: String {
+        let date = showsDate ? transaction.date.formatted(.dateTime.day().month(.abbreviated).locale(.app)) : nil
+        let parent = transaction.kind == .transfer ? nil : transaction.category?.parent?.name
+        let irregular = transaction.isIrregular ? String(localized: "Irregular", bundle: .l10n) : nil
         let detail = transaction.note ?? transaction.merchant
         let wallets: String?
         if transaction.kind == .transfer {
@@ -221,7 +267,7 @@ struct TransactionRow: View {
         } else {
             wallets = showsWallet ? transaction.primaryWallet?.name : nil
         }
-        return [detail, wallets].compactMap { $0 }.joined(separator: " · ")
+        return [date, parent, irregular, detail, wallets].compactMap { $0 }.joined(separator: " · ")
     }
 
     private var iconName: String {
@@ -231,7 +277,7 @@ struct TransactionRow: View {
 
     private var tint: Color {
         if transaction.kind == .transfer { return AppColor.transfer }
-        return transaction.category.map { PaletteColor(identifier: $0.colorIdentifier).color } ?? .gray
+        return PaletteColor(identifier: transaction.category?.colorIdentifier ?? "gray").color
     }
 }
 

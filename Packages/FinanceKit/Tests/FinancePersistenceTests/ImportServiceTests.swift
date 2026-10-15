@@ -59,6 +59,33 @@ struct ImportServiceTests {
         }
     }
 
+    /// A file exported while the app was in English imports into a store whose
+    /// built-in categories are in Vietnamese, without creating duplicates.
+    @Test func builtInCategoriesMatchAcrossLanguages() throws {
+        let ledger = try Ledger()
+        try DefaultCategorySeeder.localizeUntouched(in: ledger.context, to: .vietnamese)
+        try ledger.makeWallet("Cash", opening: 0)
+
+        let parsed = try parse([
+            "2026-10-10 10:00,Expense,Cash,Food & Drinks,-65000,VND,,,,,,",
+            "2026-10-10 11:00,Income,Cash,Salary,25000000,VND,,,,,,",
+            "2026-10-10 12:00,Expense,Cash,Food & Drinks / Coffee,-30000,VND,,,,,,",
+        ])
+        let plan = try importer(ledger).plan(parsed)
+        #expect(plan.issues.isEmpty)
+        #expect(plan.newCategories.map(\.path) == ["Food & Drinks / Coffee"])   // only the new child
+
+        try importer(ledger).commit(plan)
+        let transactions = try ledger.context.fetch(FetchDescriptor<LedgerTransaction>())
+        let food = try ledger.category("expense.food")
+        #expect(food.name == "Ăn uống")
+        #expect(transactions.filter { $0.category?.id == food.id }.count == 1)
+        #expect(transactions.contains { $0.category?.seedKey == "income.salary" })
+        #expect(transactions.contains { $0.category?.parent?.id == food.id && $0.category?.name == "Coffee" })
+        #expect(try ledger.context.fetch(FetchDescriptor<LedgerCategory>()).filter { $0.parent == nil && $0.type == .expense }.count
+                == DefaultCategorySeeder.expenseCategories.count)
+    }
+
     @Test func importingTheSameFileTwiceAddsNothing() throws {
         let (container, context) = try populatedStore()
         _ = container

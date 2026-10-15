@@ -20,6 +20,15 @@ struct PersonalFinanceApp: App {
                 RootView()
                     .environment(container)
                     .modelContainer(container.modelContainer)
+                    // A language chosen in the app applies at once: SwiftUI
+                    // texts follow the locale, and rebuilding the views
+                    // re-evaluates every computed text. Tabs and navigation
+                    // paths live in `AppRouter`, so the user stays where they are.
+                    .environment(\.locale, container.language.locale)
+                    // Charts and pickers read days and weeks from the app's
+                    // CalendarPolicy (Monday weeks, one time zone), not the device.
+                    .environment(\.calendar, container.calendarPolicy.calendar)
+                    .id(container.language.effectiveCode)
             case .failed(let failure):
                 StoreErrorView(failure: failure) {
                     let state = LaunchState.start()

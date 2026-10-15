@@ -14,6 +14,8 @@ final class FormFixture {
     let budgets: BudgetService
     let recurring: RecurringService
     let savings: SavingsService
+    let wallets: WalletService
+    let categories: CategoryService
     let cash: Wallet
     let bank: Wallet
     let usd: Wallet
@@ -32,9 +34,11 @@ final class FormFixture {
         budgets = BudgetService(context: context, calendar: PreviewFixtures.calendarPolicy, now: clock)
         recurring = RecurringService(context: context, calendar: PreviewFixtures.calendarPolicy, now: clock)
         savings = SavingsService(context: context, calendar: PreviewFixtures.calendarPolicy, now: clock)
-        let wallets = WalletService(context: context, now: clock)
+        let walletService = WalletService(context: context, now: clock)
+        wallets = walletService
+        categories = CategoryService(context: context, now: clock)
         func wallet(_ name: String, _ currency: CurrencyDefinition, _ opening: Int64) throws -> Wallet {
-            try wallets.create(WalletDraft(
+            try walletService.create(WalletDraft(
                 name: name, type: .cash, currency: currency,
                 enteredOpeningBalance: Money(minorUnits: opening, currency: currency),
                 iconName: "banknote", colorIdentifier: "green"
@@ -66,6 +70,14 @@ final class FormFixture {
     func savingsModel(_ mode: SavingsGoalFormModel.Mode) -> SavingsGoalFormModel {
         SavingsGoalFormModel(mode: mode, service: savings, policy: PreviewFixtures.calendarPolicy,
                              now: { FormFixture.now }, parser: FormFixture.parser)
+    }
+
+    func walletModel(_ mode: WalletFormModel.Mode) -> WalletFormModel {
+        WalletFormModel(mode: mode, service: wallets, parser: FormFixture.parser)
+    }
+
+    func categoryModel(_ mode: CategoryFormModel.Mode) -> CategoryFormModel {
+        CategoryFormModel(mode: mode, service: categories)
     }
 
     func allCategories() throws -> [LedgerCategory] {

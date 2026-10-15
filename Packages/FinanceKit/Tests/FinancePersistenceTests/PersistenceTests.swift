@@ -28,8 +28,8 @@ struct PersistenceTests {
 
     @Test func schemaContainsCoreLedgerModels() {
         #expect(ModelContainerFactory.schema.entities.count == 8)
-        #expect(FinanceMigrationPlan.schemas.count == 3)
-        #expect(FinanceMigrationPlan.stages.count == 2)
+        #expect(FinanceMigrationPlan.schemas.count == 4)       // V1–V4
+        #expect(FinanceMigrationPlan.stages.count == 3)
     }
 
     @Test func inMemoryContainerStartsEmpty() throws {

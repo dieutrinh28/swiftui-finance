@@ -73,6 +73,10 @@ public enum BackupValidator {
             for id in budget.walletIDs where walletCurrency[id] == nil {
                 throw BackupError.missingReference(entity: "wallet", id: id)
             }
+            guard (try? BudgetAlertRules.normalizedThresholds(budget.alertThresholdPercents)) != nil else {
+                throw BackupError.invalidValue(field: "alert thresholds",
+                                               value: budget.alertThresholdPercents.map(String.init).joined(separator: ","))
+            }
         }
 
         // Savings goals
@@ -95,7 +99,7 @@ public enum BackupValidator {
         // Recurring
         try requireUnique(document.recurring.map(\.id), entity: "recurring transaction")
         for item in document.recurring {
-            guard let kind = TransactionKind(rawValue: item.kind), kind != .transfer else {
+            guard let kind = TransactionKind(rawValue: item.kind) else {
                 throw BackupError.invalidValue(field: "recurring kind", value: item.kind)
             }
             guard RecurrenceFrequency(rawValue: item.frequency) != nil else {
@@ -113,8 +117,28 @@ public enum BackupValidator {
             guard currency == item.currencyCode.uppercased() else {
                 throw BackupError.invalidValue(field: "recurring currency", value: item.currencyCode)
             }
-            guard categoryIDs.contains(item.categoryID) else {
-                throw BackupError.missingReference(entity: "category", id: item.categoryID)
+            if kind == .transfer {
+                guard let destination = item.destinationWalletID, let destinationCurrency = walletCurrency[destination] else {
+                    throw BackupError.missingReference(entity: "wallet", id: item.destinationWalletID ?? item.walletID)
+                }
+                guard destination != item.walletID else {
+                    throw BackupError.invalidValue(field: "recurring destination", value: destination.uuidString)
+                }
+                if destinationCurrency == currency {
+                    guard item.receivedAmountMinorUnits == nil || item.receivedAmountMinorUnits == item.amountMinorUnits else {
+                        throw BackupError.invalidValue(field: "recurring received amount",
+                                                       value: String(item.receivedAmountMinorUnits ?? 0))
+                    }
+                } else if let received = item.receivedAmountMinorUnits, received <= 0 {
+                    throw BackupError.invalidValue(field: "recurring received amount", value: String(received))
+                }
+            } else {
+                guard let category = item.categoryID else {
+                    throw BackupError.invalidValue(field: "recurring category", value: "")
+                }
+                guard categoryIDs.contains(category) else {
+                    throw BackupError.missingReference(entity: "category", id: category)
+                }
             }
         }
 

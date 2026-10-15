@@ -177,8 +177,11 @@ extension SchemaV1 {
 }
 
 // MARK: - Typed accessors
+//
+// Written against the current models (the typealiases in CurrentSchema.swift),
+// not SchemaV1: the app only ever works with the current version.
 
-extension SchemaV1.Wallet {
+extension Wallet {
     public var type: WalletType {
         get { WalletType(rawValue: typeRaw) ?? .other }
         set { typeRaw = newValue.rawValue }
@@ -196,14 +199,14 @@ extension SchemaV1.Wallet {
     public var isArchived: Bool { archivedAt != nil }
 }
 
-extension SchemaV1.LedgerCategory {
+extension LedgerCategory {
     /// nil when the stored raw value is unknown. Callers must not guess.
     public var type: CategoryType? { CategoryType(rawValue: typeRaw) }
 
     public var isArchived: Bool { archivedAt != nil }
 }
 
-extension SchemaV1.LedgerTransaction {
+extension LedgerTransaction {
     /// nil when the stored raw value is unknown. Callers must not guess.
     public var kind: TransactionKind? { TransactionKind(rawValue: kindRaw) }
 
@@ -216,7 +219,7 @@ extension SchemaV1.LedgerTransaction {
     /// The unsigned amount to show in lists: the single entry for income and
     /// expense, the outgoing side for a transfer. nil if the record is malformed.
     public var displayAmount: Money? {
-        let entry: SchemaV1.LedgerEntry?
+        let entry: LedgerEntry?
         switch kind {
         case .income, .expense: entry = entries.count == 1 ? entries.first : nil
         case .transfer: entry = entries.first { $0.amountMinorUnits < 0 }
@@ -231,7 +234,7 @@ extension SchemaV1.LedgerTransaction {
     }
 }
 
-extension SchemaV1.LedgerEntry {
+extension LedgerEntry {
     public var amount: Money? {
         guard let currency = try? CurrencyCatalog.definition(for: currencyCode) else { return nil }
         return Money(minorUnits: amountMinorUnits, currency: currency)

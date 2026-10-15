@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import FinanceDomain
 import FinancePersistence
+import FinanceFeatures
 
 /// Review recurring items that are due: record each (optionally with a
 /// different amount) or skip it. Nothing is recorded automatically.
@@ -15,19 +16,23 @@ struct DueOccurrencesView: View {
     var body: some View {
         List {
             if due.isEmpty {
-                ContentUnavailableView("Nothing due", systemImage: "checkmark.circle",
-                                       description: Text("All recurring transactions are up to date."))
+                EmptyStateView(
+                    systemImage: "checkmark.circle",
+                    title: "Nothing due",
+                    message: "All recurring transactions are up to date."
+                )
+                .listRowBackground(Color.clear)
             } else {
                 Section {
                     ForEach(due) { item in
                         DueRow(item: item)
                             .swipeActions(edge: .trailing) {
                                 Button("Skip") { perform { try app.recurring.skip(item) } }
-                                    .tint(.gray)
+                                    .tint(AppColor.neutralAction)
                             }
                             .swipeActions(edge: .leading) {
                                 Button("Record") { perform { try app.recurring.record(item) } }
-                                    .tint(ChartPalette.series1)
+                                    .tint(AppColor.accent)
                             }
                             .contextMenu {
                                 Button("Record", systemImage: "checkmark") { perform { try app.recurring.record(item) } }
@@ -38,8 +43,10 @@ struct DueOccurrencesView: View {
                 } footer: {
                     Text("Swipe right to record, left to skip, or touch and hold for more. Each occurrence can be recorded only once.")
                 }
+                .surfaceRows()
             }
         }
+        .appGroupedStyle()
         .navigationTitle("Due")
         .toolbar {
             if due.count > 1 {
@@ -55,7 +62,7 @@ struct DueOccurrencesView: View {
         }
         .task(id: app.dataVersion) { reload() }
         .sheet(item: $adjusting) { item in
-            AdjustOccurrenceView(item: item)
+            RecordOccurrenceFormView(item: item)
         }
         .errorAlert($error)
     }
@@ -81,14 +88,17 @@ private struct DueRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(item.recurring.name).font(.body.weight(.medium))
-                Text(item.occurrence.date.formatted(date: .complete, time: .omitted))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Text(verbatim: item.recurring.name)
+                    .font(.rowTitle)
+                    .foregroundStyle(AppColor.textPrimary)
+                Text(item.occurrence.date.formatted(Date.FormatStyle(date: .complete, time: .omitted).locale(.app)))
+                    .font(.meta)
+                    .foregroundStyle(AppColor.textSecondary)
             }
-            Spacer()
+            Spacer(minLength: Spacing.sm)
             if let amount = item.recurring.amount, let kind = item.recurring.kind {
-                MoneyText(money: amount, tone: kind.tone)
+                MoneyText(money: amount, tone: kind.tone, font: .amountRow)
+                    .layoutPriority(1)
             }
         }
         .accessibilityElement(children: .combine)
@@ -96,42 +106,81 @@ private struct DueRow: View {
 }
 
 /// Record one occurrence with a different amount (e.g. a variable bill).
-private struct AdjustOccurrenceView: View {
+/// Logic lives in `RecordOccurrenceFormModel`.
+private struct RecordOccurrenceFormView: View {
     let item: DueOccurrence
 
     @Environment(AppContainer.self) private var app
-    @Environment(\.dismiss) private var dismiss
-    @State private var amountText = ""
-    @State private var error: AlertError?
+    @State private var model: RecordOccurrenceFormModel?
 
     var body: some View {
+        Group {
+            if let model {
+                RecordOccurrenceFormContent(model: model)
+            } else {
+                ProgressView()
+            }
+        }
+        .onAppear {
+            guard model == nil else { return }
+            model = RecordOccurrenceFormModel(item: item, service: app.recurring)
+        }
+    }
+}
+
+private struct RecordOccurrenceFormContent: View {
+    @Bindable var model: RecordOccurrenceFormModel
+
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var amountFocused: Bool
+
+    var body: some View {
+        let recurring = model.item.recurring
         NavigationStack {
             Form {
-                if let amount = item.recurring.amount {
-                    AmountField(text: $amountText, currency: amount.currency, tone: item.recurring.kind?.tone ?? .neutral)
+                if let currency = model.currency {
+                    Section {
+                        AmountField(text: $model.amountText, currency: currency,
+                                    tone: recurring.isTransfer ? .transferOut : (recurring.kind?.tone ?? .neutral))
+                            .focused($amountFocused)
+                    } header: {
+                        Text(model.needsReceivedAmount ? "Amount sent" : "Amount")
+                    } footer: {
+                        Text("Due \(model.item.occurrence.date.formatted(Date.FormatStyle(date: .complete, time: .omitted).locale(.app))). Only this occurrence changes.")
+                    }
+                    .surfaceRows()
+                }
+                if model.loadFailure != nil {
+                    Section {
+                        ReadFailureLabel("The wallets of this item couldn't be read.")
+                    }
+                    .surfaceRows()
+                }
+                if let currency = model.crossCurrencyDestination?.currency {
+                    Section("Amount received") {
+                        AmountField(text: $model.receivedText, currency: currency, tone: .transferIn)
+                    }
+                    .surfaceRows()
                 }
             }
-            .navigationTitle(item.recurring.name)
+            .appGroupedStyle()
+            .keyboardDismissal()
+            .safeAreaInset(edge: .bottom) {
+                PrimaryActionBar(title: "Record", isEnabled: model.canSave) {
+                    if model.save() { dismiss() }
+                }
+            }
+            .navigationTitle(recurring.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Record") {
-                        guard let currency = item.recurring.amount?.currency else { return }
-                        do {
-                            try app.recurring.record(item, amount: try AmountInputParser().parse(amountText, currency: currency))
-                            dismiss()
-                        } catch {
-                            self.error = AlertError(error)
-                        }
-                    }
-                }
             }
-            .onAppear {
-                if let amount = item.recurring.amount { amountText = AmountInputParser().editingText(for: amount) }
-            }
-            .errorAlert($error)
+            .onAppear { amountFocused = true }
+            .errorAlert(Binding(
+                get: { model.failure.map { AlertError($0) } },
+                set: { if $0 == nil { model.clearFailure() } }
+            ))
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 }

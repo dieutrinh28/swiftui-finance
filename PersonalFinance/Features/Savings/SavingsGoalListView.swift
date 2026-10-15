@@ -15,22 +15,25 @@ struct SavingsGoalListView: View {
     var body: some View {
         Group {
             if goals.isEmpty {
-                ContentUnavailableView {
-                    Label("No savings goals yet", systemImage: "target")
-                } description: {
-                    Text("Set money aside for an emergency fund, a trip or a new laptop and track your progress. Goals never change your wallet balances.")
-                } actions: {
-                    Button("Create Goal") { showingNewGoal = true }
-                        .buttonStyle(.borderedProminent)
+                EmptyStateView(
+                    systemImage: "target",
+                    title: "No savings goals yet",
+                    message: "Set money aside for an emergency fund, a trip or a new laptop and track your progress. Goals never change your wallet balances."
+                ) {
+                    Button("Add Goal", systemImage: "plus") { showingNewGoal = true }
+                        .buttonStyle(.appPrimary)
                 }
+                .frame(maxHeight: .infinity)
             } else {
                 List {
                     goalSection("Active", active)
                     goalSection("Completed", completed)
                     goalSection("Archived", archived)
                 }
+                .appGroupedStyle()
             }
         }
+        .screenBackground()
         .navigationTitle("Savings Goals")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -56,6 +59,7 @@ struct SavingsGoalListView: View {
                     }
                 }
             }
+            .surfaceRows()
         }
     }
 }
@@ -68,29 +72,43 @@ struct SavingsGoalRow: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack(spacing: Spacing.md) {
                 IconBadge(systemName: goal.iconName, tint: PaletteColor(identifier: goal.colorIdentifier).color)
-                Text(goal.name).font(.headline)
+                Text(verbatim: goal.name)
+                    .font(.cardTitle)
+                    .foregroundStyle(AppColor.textPrimary)
                 Spacer()
             }
             switch Result(catching: { try app.savings.progress(of: goal, at: .now) }) {
             case .success(let progress):
-                ProgressView(value: NSDecimalNumber(decimal: progress.fraction).doubleValue)
-                    .tint(progress.isReached ? AppColor.income : ChartPalette.series1)
+                SavingsProgressBar(progress: progress)
                 HStack {
                     Text("\(MoneyFormatter().string(from: progress.saved)) of \(MoneyFormatter().string(from: progress.target))")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.meta)
+                        .foregroundStyle(AppColor.textSecondary)
                     Spacer()
-                    Text(progress.fraction.formatted(.percent.precision(.fractionLength(0))))
-                        .font(.footnote.weight(.semibold))
+                    Text(progress.fraction.formatted(.percent.precision(.fractionLength(0)).locale(.app)))
+                        .font(.meta.weight(.semibold))
+                        .foregroundStyle(AppColor.textPrimary)
                 }
             case .failure:
-                Label("Progress unavailable", systemImage: "exclamationmark.triangle")
-                    .font(.footnote)
-                    .foregroundStyle(AppColor.expense)
+                ReadFailureLabel("Progress unavailable")
             }
         }
         .padding(.vertical, Spacing.xs)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Saved ÷ target as a meter; green once reached.
+struct SavingsProgressBar: View {
+    let progress: SavingsProgress
+
+    var body: some View {
+        let fraction = min(max(NSDecimalNumber(decimal: progress.fraction).doubleValue, 0), 1)
+        MeterBar(fraction: fraction, tint: progress.isReached ? AppColor.positive : AppColor.accent)
+            .accessibilityRepresentation {
+                ProgressView(value: fraction)
+                    .accessibilityValue(Text(progress.fraction.formatted(.percent.precision(.fractionLength(0)).locale(.app))))
+            }
     }
 }
 

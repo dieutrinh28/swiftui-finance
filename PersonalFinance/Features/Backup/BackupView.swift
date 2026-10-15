@@ -35,6 +35,7 @@ struct BackupView: View {
             restoreSection
             exportSection
         }
+        .appGroupedStyle()
         .navigationTitle("Backup & Export")
         .navigationBarTitleDisplayMode(.inline)
         .fileExporter(
@@ -98,12 +99,13 @@ struct BackupView: View {
                 Label("Save Backup…", systemImage: "externaldrive.badge.plus")
             }
             LabeledContent("Last backup", value: lastBackupText)
-                .foregroundStyle(lastBackupIsStale ? AppColor.liability : Color.primary)
+                .foregroundStyle(lastBackupIsStale ? AppColor.warning : AppColor.textPrimary)
         } header: {
             Text("Backup")
         } footer: {
             Text("A complete copy of your wallets, transactions, categories, budgets, savings goals and recurring transactions. Save it outside this iPhone, for example in iCloud Drive or on a computer.")
         }
+        .surfaceRows()
     }
 
     private var restoreSection: some View {
@@ -119,6 +121,7 @@ struct BackupView: View {
         } footer: {
             Text("Replaces all data on this iPhone with the backup. The file is checked first, and a copy of your current data is kept in Files › On My iPhone › Finance › \(BackupFiles.safetyCopiesFolder).")
         }
+        .surfaceRows()
     }
 
     private var exportSection: some View {
@@ -139,6 +142,7 @@ struct BackupView: View {
         } footer: {
             Text("Export all transactions for Excel, Numbers or Google Sheets. Import adds transactions from a CSV exported by this app (also after editing it); it never changes or deletes existing ones. A CSV is not a backup: it has no budgets, goals or opening balances.")
         }
+        .surfaceRows()
     }
 
     // MARK: Actions
@@ -196,8 +200,8 @@ struct BackupView: View {
     // MARK: Display
 
     private var lastBackupText: String {
-        guard lastBackupAt > 0 else { return String(localized: "Never") }
-        return Date(timeIntervalSince1970: lastBackupAt).formatted(.relative(presentation: .named))
+        guard lastBackupAt > 0 else { return String(localized: "Never", bundle: .l10n) }
+        return Date(timeIntervalSince1970: lastBackupAt).formatted(.relative(presentation: .named).locale(.app))
     }
 
     private var lastBackupIsStale: Bool {
@@ -216,7 +220,7 @@ private struct RestoreReviewView: View {
                 switch flow.step {
                 case .review(let summary):
                     Section {
-                        LabeledContent("Created", value: summary.exportedAt.formatted(date: .abbreviated, time: .shortened))
+                        LabeledContent("Created", value: summary.exportedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(.app)))
                         LabeledContent("Wallets", value: "\(summary.wallets)")
                         LabeledContent("Transactions", value: "\(summary.transactions)")
                         LabeledContent("Categories", value: "\(summary.categories)")
@@ -226,33 +230,38 @@ private struct RestoreReviewView: View {
                     } header: {
                         Text("This backup contains")
                     }
+                    .surfaceRows()
                     Section {
                         Label("Everything currently on this iPhone will be replaced. A copy of it is saved first.",
                               systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(AppColor.liability)
+                            .foregroundStyle(AppColor.warning)
                         Button("Replace All Data", role: .destructive) { flow.confirm() }
                     }
+                    .surfaceRows()
                 case .finished(let summary, let safetyCopy):
                     Section {
                         Label("Restored \(summary.transactions) transactions in \(summary.wallets) wallets.",
                               systemImage: "checkmark.circle")
                         if let safetyCopy {
                             Text("Your previous data was saved as “\(safetyCopy)” in Files › On My iPhone › Finance › \(BackupFiles.safetyCopiesFolder).")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .font(.meta)
+                                .foregroundStyle(AppColor.textSecondary)
                         }
                     }
+                    .surfaceRows()
                 case .failed(let message):
                     Section {
                         Label(message, systemImage: "xmark.octagon")
-                            .foregroundStyle(AppColor.liability)
+                            .foregroundStyle(AppColor.negative)
                         Text("Nothing was changed.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColor.textSecondary)
                     }
+                    .surfaceRows()
                 case .idle:
                     EmptyView()
                 }
             }
+            .appGroupedStyle()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -270,9 +279,9 @@ private struct RestoreReviewView: View {
 
     private var title: String {
         switch flow.step {
-        case .review: String(localized: "Restore Backup")
-        case .finished: String(localized: "Restore Complete")
-        case .failed: String(localized: "Can't Restore")
+        case .review: String(localized: "Restore Backup", bundle: .l10n)
+        case .finished: String(localized: "Restore Complete", bundle: .l10n)
+        case .failed: String(localized: "Can't Restore", bundle: .l10n)
         case .idle: ""
         }
     }
@@ -296,25 +305,28 @@ private struct ImportReviewView: View {
                         Label("Imported \(result.imported) transaction(s).", systemImage: "checkmark.circle")
                         if result.newWallets > 0 {
                             Text("\(result.newWallets) new wallet(s) were created without an opening balance. Set it in each wallet if needed.")
-                                .font(.footnote)
+                                .font(.meta)
                         }
                         if let safetyCopy {
                             Text("Your data before the import was saved as “\(safetyCopy)” in Files › On My iPhone › Finance › \(BackupFiles.safetyCopiesFolder).")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .font(.meta)
+                                .foregroundStyle(AppColor.textSecondary)
                         }
                     }
+                    .surfaceRows()
                 case .failed(let message):
                     Section {
                         Label(message, systemImage: "xmark.octagon")
-                            .foregroundStyle(AppColor.liability)
+                            .foregroundStyle(AppColor.negative)
                         Text("Nothing was changed.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColor.textSecondary)
                     }
+                    .surfaceRows()
                 case .idle:
                     EmptyView()
                 }
             }
+            .appGroupedStyle()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -340,7 +352,13 @@ private struct ImportReviewView: View {
             }
             ForEach(plan.newCategories.indices, id: \.self) { index in
                 let category = plan.newCategories[index]
-                Label("New \(category.type == .income ? "income" : "expense") category: \(category.path)", systemImage: "tag")
+                Group {
+                    if category.type == .income {
+                        Label("New income category: \(category.path)", systemImage: "tag")
+                    } else {
+                        Label("New expense category: \(category.path)", systemImage: "tag")
+                    }
+                }
             }
         } header: {
             Text("This file")
@@ -349,6 +367,7 @@ private struct ImportReviewView: View {
                 Text("New wallets start with no opening balance.")
             }
         }
+        .surfaceRows()
 
         if !plan.possibleDuplicates.isEmpty {
             Section {
@@ -358,25 +377,26 @@ private struct ImportReviewView: View {
             } footer: {
                 Text("Same day, type, wallet and amount as a transaction already in the app. Skipped unless you turn this on.")
             }
+            .surfaceRows()
         }
 
         if plan.alreadyImported > 0 || !plan.issues.isEmpty {
             Section {
                 if plan.alreadyImported > 0 {
                     Label("\(plan.alreadyImported) already in the app (same ID), skipped.", systemImage: "checkmark.circle")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColor.textSecondary)
                 }
                 ForEach(plan.issues.prefix(Self.maxIssuesShown).indices, id: \.self) { index in
                     let issue = plan.issues[index]
                     VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        Text("Line \(issue.line)").font(.footnote.weight(.semibold))
-                        Text(issue.problem.message).font(.footnote)
+                        Text("Line \(issue.line)").font(.meta.weight(.semibold))
+                        Text(issue.problem.message).font(.meta)
                     }
                 }
                 if plan.issues.count > Self.maxIssuesShown {
                     Text("…and \(plan.issues.count - Self.maxIssuesShown) more.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.meta)
+                        .foregroundStyle(AppColor.textSecondary)
                 }
             } header: {
                 Text("Skipped")
@@ -385,6 +405,7 @@ private struct ImportReviewView: View {
                     Text("Rows with problems are left out. Fix them in the file and import it again; rows already imported are skipped.")
                 }
             }
+            .surfaceRows()
         }
 
         Section {
@@ -393,13 +414,14 @@ private struct ImportReviewView: View {
         } footer: {
             Text("Only adds transactions. A copy of your current data is saved first.")
         }
+        .surfaceRows()
     }
 
     private var title: String {
         switch flow.step {
-        case .review: String(localized: "Import CSV")
-        case .finished: String(localized: "Import Complete")
-        case .failed: String(localized: "Can't Import")
+        case .review: String(localized: "Import CSV", bundle: .l10n)
+        case .finished: String(localized: "Import Complete", bundle: .l10n)
+        case .failed: String(localized: "Can't Import", bundle: .l10n)
         case .idle: ""
         }
     }

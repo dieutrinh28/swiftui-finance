@@ -2,31 +2,19 @@ import SwiftUI
 import FinanceDomain
 import FinancePersistence
 
-// Display names and default icons for domain enums. Kept in the app target
+// Display names (and some icons) for domain enums. Kept in the app target
 // because they are presentation concerns, not financial rules.
 
 extension WalletType {
     var displayName: String {
         switch self {
-        case .cash: String(localized: "Cash")
-        case .bankAccount: String(localized: "Bank account")
-        case .eWallet: String(localized: "E-wallet")
-        case .savingsAccount: String(localized: "Savings account")
-        case .creditCard: String(localized: "Credit card")
-        case .investmentAccount: String(localized: "Investment account")
-        case .other: String(localized: "Other")
-        }
-    }
-
-    var defaultIconName: String {
-        switch self {
-        case .cash: "banknote"
-        case .bankAccount: "building.columns"
-        case .eWallet: "iphone"
-        case .savingsAccount: "archivebox"
-        case .creditCard: "creditcard"
-        case .investmentAccount: "chart.line.uptrend.xyaxis"
-        case .other: "wallet.pass"
+        case .cash: String(localized: "Cash", bundle: .l10n)
+        case .bankAccount: String(localized: "Bank account", bundle: .l10n)
+        case .eWallet: String(localized: "E-wallet", bundle: .l10n)
+        case .savingsAccount: String(localized: "Savings account", bundle: .l10n)
+        case .creditCard: String(localized: "Credit card", bundle: .l10n)
+        case .investmentAccount: String(localized: "Investment account", bundle: .l10n)
+        case .other: String(localized: "Other", bundle: .l10n)
         }
     }
 }
@@ -34,8 +22,8 @@ extension WalletType {
 extension CategoryType {
     var displayName: String {
         switch self {
-        case .income: String(localized: "Income")
-        case .expense: String(localized: "Expenses")
+        case .income: String(localized: "Income", bundle: .l10n)
+        case .expense: String(localized: "Expenses", bundle: .l10n)
         }
     }
 }
@@ -43,10 +31,10 @@ extension CategoryType {
 extension BudgetPeriod {
     var displayName: String {
         switch self {
-        case .weekly: String(localized: "Weekly")
-        case .monthly: String(localized: "Monthly")
-        case .yearly: String(localized: "Yearly")
-        case .custom: String(localized: "Custom dates")
+        case .weekly: String(localized: "Weekly", bundle: .l10n)
+        case .monthly: String(localized: "Monthly", bundle: .l10n)
+        case .yearly: String(localized: "Yearly", bundle: .l10n)
+        case .custom: String(localized: "Custom dates", bundle: .l10n)
         }
     }
 }
@@ -54,20 +42,20 @@ extension BudgetPeriod {
 extension BudgetProgress.Status {
     var displayName: String {
         switch self {
-        case .notStarted: String(localized: "Not started")
-        case .onTrack: String(localized: "On track")
-        case .nearLimit: String(localized: "Near limit")
-        case .overBudget: String(localized: "Over budget")
-        case .ended: String(localized: "Ended")
+        case .notStarted: String(localized: "Not started", bundle: .l10n)
+        case .onTrack: String(localized: "On track", bundle: .l10n)
+        case .nearLimit: String(localized: "Near limit", bundle: .l10n)
+        case .overBudget: String(localized: "Over budget", bundle: .l10n)
+        case .ended: String(localized: "Ended", bundle: .l10n)
         }
     }
 
     var color: Color {
         switch self {
-        case .notStarted, .ended: .secondary
-        case .onTrack: AppColor.income
-        case .nearLimit: AppColor.liability
-        case .overBudget: AppColor.expense
+        case .notStarted, .ended: AppColor.textSecondary
+        case .onTrack: AppColor.positive
+        case .nearLimit: AppColor.warning
+        case .overBudget: AppColor.negative
         }
     }
 
@@ -85,10 +73,10 @@ extension BudgetProgress.Status {
 extension RecurrenceFrequency {
     var displayName: String {
         switch self {
-        case .daily: String(localized: "Daily")
-        case .weekly: String(localized: "Weekly")
-        case .monthly: String(localized: "Monthly")
-        case .yearly: String(localized: "Yearly")
+        case .daily: String(localized: "Daily", bundle: .l10n)
+        case .weekly: String(localized: "Weekly", bundle: .l10n)
+        case .monthly: String(localized: "Monthly", bundle: .l10n)
+        case .yearly: String(localized: "Yearly", bundle: .l10n)
         }
     }
 
@@ -96,10 +84,10 @@ extension RecurrenceFrequency {
     func describe(interval: Int) -> String {
         guard interval > 1 else { return displayName }
         switch self {
-        case .daily: return String(localized: "Every \(interval) days")
-        case .weekly: return String(localized: "Every \(interval) weeks")
-        case .monthly: return String(localized: "Every \(interval) months")
-        case .yearly: return String(localized: "Every \(interval) years")
+        case .daily: return String(localized: "Every \(interval) days", bundle: .l10n)
+        case .weekly: return String(localized: "Every \(interval) weeks", bundle: .l10n)
+        case .monthly: return String(localized: "Every \(interval) months", bundle: .l10n)
+        case .yearly: return String(localized: "Every \(interval) years", bundle: .l10n)
         }
     }
 }
@@ -107,9 +95,9 @@ extension RecurrenceFrequency {
 extension TransactionKind {
     var displayName: String {
         switch self {
-        case .income: String(localized: "Income")
-        case .expense: String(localized: "Expense")
-        case .transfer: String(localized: "Transfer")
+        case .income: String(localized: "Income", bundle: .l10n)
+        case .expense: String(localized: "Expense", bundle: .l10n)
+        case .transfer: String(localized: "Transfer", bundle: .l10n)
         }
     }
 

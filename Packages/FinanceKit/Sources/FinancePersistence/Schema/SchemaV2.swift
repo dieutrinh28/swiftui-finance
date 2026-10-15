@@ -19,8 +19,6 @@ public enum SchemaV2: VersionedSchema {
     }
 }
 
-public typealias Budget = SchemaV2.Budget
-
 extension SchemaV2 {
     /// A spending plan for one or more expense categories. Not a wallet:
     /// it holds no money and never changes balances or transactions.

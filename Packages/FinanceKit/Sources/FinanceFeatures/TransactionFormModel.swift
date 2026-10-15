@@ -11,7 +11,7 @@ public enum TransactionFormError: Error, Equatable, Sendable {
 extension TransactionFormError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .missingWallet: "Please choose a wallet."
+        case .missingWallet: String(localized: "Please choose a wallet.", bundle: .l10n)
         }
     }
 }
@@ -57,7 +57,22 @@ public final class TransactionFormModel {
     public var amountText = ""
     /// Transfers between different currencies only: amount arriving in `destinationWallet`.
     public var receivedAmountText = ""
-    public var category: LedgerCategory?
+    /// Choosing a category also sets `isIrregular` to the category's default,
+    /// until the user changes the toggle themselves.
+    public var category: LedgerCategory? {
+        didSet {
+            guard !irregularChosenByUser, category?.id != oldValue?.id else { return }
+            selectedIrregular = category?.isIrregular ?? false
+        }
+    }
+    /// Expenses only: counts in balances but not in spending or budgets.
+    public var isIrregular: Bool {
+        get { selectedIrregular }
+        set {
+            selectedIrregular = newValue
+            irregularChosenByUser = true
+        }
+    }
     public var date: Date
     public var note = ""
     public var merchant = ""
@@ -70,6 +85,8 @@ public final class TransactionFormModel {
     // MARK: Private
 
     private var selectedKind: TransactionKind = .expense
+    private var selectedIrregular = false
+    @ObservationIgnored private var irregularChosenByUser = false
     @ObservationIgnored private let service: TransactionService
     @ObservationIgnored private let parser: AmountInputParser
 
@@ -104,6 +121,8 @@ public final class TransactionFormModel {
             } else {
                 wallet = transaction.primaryWallet
                 category = transaction.category
+                selectedIrregular = transaction.isIrregular
+                irregularChosenByUser = true          // keep what was saved
                 if let amount = transaction.displayAmount {
                     amountText = parser.editingText(for: amount)
                 }
@@ -119,6 +138,9 @@ public final class TransactionFormModel {
     }
 
     public var isTransfer: Bool { kind == .transfer }
+
+    /// The irregular toggle is offered for expenses only.
+    public var offersIrregular: Bool { kind == .expense }
 
     /// A new transaction can be any kind. An existing transfer stays a transfer,
     /// and an existing income/expense can only switch between the two.
@@ -178,7 +200,7 @@ public final class TransactionFormModel {
     /// Picks the first active wallet when none is selected yet.
     public func selectDefaultWalletIfNeeded(from wallets: [Wallet]) {
         guard wallet == nil else { return }
-        wallet = wallets.first { !$0.isArchived }
+        wallet = WalletChoices.selectable(from: wallets).first
     }
 
     /// Records or updates the transaction.
@@ -212,7 +234,8 @@ public final class TransactionFormModel {
     private func saveCashFlow(in wallet: Wallet, amount: Money) throws {
         let draft = CashFlowDraft(
             kind: kind, amount: amount, wallet: wallet, category: category,
-            date: date, note: note, merchant: merchant
+            date: date, note: note, merchant: merchant,
+            isIrregular: kind == .expense ? isIrregular : false
         )
         switch mode {
         case .create: try service.create(draft)

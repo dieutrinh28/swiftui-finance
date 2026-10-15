@@ -19,10 +19,3 @@ public enum SchemaV1: VersionedSchema {
         [Wallet.self, LedgerCategory.self, LedgerTransaction.self, LedgerEntry.self]
     }
 }
-
-// The app always works with the current schema version through these aliases.
-// V2 reuses these four models unchanged; `Budget` is declared in SchemaV2.swift.
-public typealias Wallet = SchemaV1.Wallet
-public typealias LedgerCategory = SchemaV1.LedgerCategory
-public typealias LedgerTransaction = SchemaV1.LedgerTransaction
-public typealias LedgerEntry = SchemaV1.LedgerEntry

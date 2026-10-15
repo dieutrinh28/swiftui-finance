@@ -67,6 +67,8 @@ public struct ExpenseSnapshot: Sendable, Equatable {
     /// Unsigned amount in the wallet currency.
     public var amount: Money
     public var day: DayKey
+    /// Irregular expenses never count towards a budget.
+    public var isIrregular: Bool
 
     public init(
         transactionID: UUID,
@@ -75,7 +77,8 @@ public struct ExpenseSnapshot: Sendable, Equatable {
         parentCategoryID: UUID? = nil,
         walletID: UUID?,
         amount: Money,
-        day: DayKey
+        day: DayKey,
+        isIrregular: Bool = false
     ) {
         self.transactionID = transactionID
         self.kind = kind
@@ -84,6 +87,7 @@ public struct ExpenseSnapshot: Sendable, Equatable {
         self.walletID = walletID
         self.amount = amount
         self.day = day
+        self.isIrregular = isIrregular
     }
 }
 
@@ -120,7 +124,7 @@ public struct BudgetProgress: Sendable, Equatable {
 
 /// Budget rules. See docs/ARCHITECTURE.md, "Budgets".
 ///
-/// - Only expenses count; income and transfers never do.
+/// - Only regular expenses count; income, transfers and irregular expenses never do.
 /// - An expense counts when its category (or that category's parent) is one of
 ///   the budget's categories and, if the budget is limited to wallets, its
 ///   wallet is one of them. Each transaction counts at most once per budget.
@@ -156,7 +160,7 @@ public enum BudgetRules {
     ) -> [ExpenseSnapshot] {
         var seen = Set<UUID>()
         return snapshots.filter { snapshot in
-            guard snapshot.kind == .expense else { return false }
+            guard snapshot.kind == .expense, !snapshot.isIrregular else { return false }
             let matchesCategory = snapshot.categoryID.map { categoryIDs.contains($0) } ?? false
             let matchesParent = snapshot.parentCategoryID.map { categoryIDs.contains($0) } ?? false
             guard matchesCategory || matchesParent else { return false }

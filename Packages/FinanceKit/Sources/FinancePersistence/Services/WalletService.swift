@@ -67,8 +67,15 @@ public struct WalletService {
         guard !wallet.isArchived else { throw LedgerValidationError.archivedWallet }
         let name = try TextRules.normalizedName(draft.name)
         let opening = try storedOpening(for: draft)
-        if draft.currency.code != wallet.currencyCode, wallet.hasHistory {
-            throw LedgerValidationError.walletCurrencyLocked
+        if draft.currency.code != wallet.currencyCode {
+            if wallet.hasHistory { throw LedgerValidationError.walletCurrencyLocked }
+            // Recurring items store the wallet's currency, budgets limited to a
+            // wallet and goals linked to it must share it (I7 in ARCHITECTURE.md).
+            if try RecurringReferences.isWalletUsed(wallet, in: context)
+                || BudgetReferences.isWalletUsed(wallet, in: context)
+                || SavingsReferences.isWalletLinked(wallet, in: context) {
+                throw LedgerValidationError.walletCurrencyInUse
+            }
         }
 
         wallet.name = name

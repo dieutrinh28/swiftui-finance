@@ -103,9 +103,10 @@ struct BackupValidatorTests {
         document.transactions[1].entries[0].amountMinorUnits = 50_000      // positive expense
         #expect(throws: BackupError.invalidTransaction(id: expenseID)) { try BackupValidator.validate(document) }
 
-        document = Self.sample()
+        document = Self.sample()                                            // new ids
+        let sameWalletID = document.transactions[2].id
         document.transactions[2].entries[1].walletID = document.transactions[2].entries[0].walletID
-        #expect(throws: BackupError.invalidTransaction(id: transferID)) { try BackupValidator.validate(document) }
+        #expect(throws: BackupError.invalidTransaction(id: sameWalletID)) { try BackupValidator.validate(document) }
     }
 
     @Test func categoryCyclesAreRejected() {

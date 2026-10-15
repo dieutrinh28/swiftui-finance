@@ -41,7 +41,7 @@ public struct BackupService {
                 .init(id: $0.id, name: $0.name, type: $0.typeRaw, iconName: $0.iconName,
                       colorIdentifier: $0.colorIdentifier, seedKey: $0.seedKey, parentID: $0.parent?.id,
                       sortOrder: $0.sortOrder, createdAt: $0.createdAt, updatedAt: $0.updatedAt,
-                      archivedAt: $0.archivedAt)
+                      archivedAt: $0.archivedAt, isIrregular: $0.isIrregular)
             },
             transactions: try transactions.map { transaction in
                 let entries = try transaction.entries
@@ -56,7 +56,8 @@ public struct BackupService {
                              note: transaction.note, merchant: transaction.merchant,
                              exchangeRateText: transaction.exchangeRateText,
                              recurringOccurrenceKey: transaction.recurringOccurrenceKey,
-                             createdAt: transaction.createdAt, updatedAt: transaction.updatedAt, entries: entries)
+                             createdAt: transaction.createdAt, updatedAt: transaction.updatedAt, entries: entries,
+                             isIrregular: transaction.isIrregular)
             },
             budgets: budgets.map {
                 .init(id: $0.id, name: $0.name, plannedAmountMinorUnits: $0.plannedAmountMinorUnits,
@@ -85,7 +86,9 @@ public struct BackupService {
                       endDate: $0.endDate, note: $0.note, reminderEnabled: $0.reminderEnabled,
                       reminderMinutes: $0.reminderMinutes, pausedAt: $0.pausedAt,
                       handledOccurrenceKeys: $0.handledOccurrenceKeys, sortOrder: $0.sortOrder,
-                      createdAt: $0.createdAt, updatedAt: $0.updatedAt)
+                      createdAt: $0.createdAt, updatedAt: $0.updatedAt,
+                      destinationWalletID: $0.destinationWalletID,
+                      receivedAmountMinorUnits: $0.receivedAmountMinorUnits)
             }
         )
     }
@@ -163,7 +166,8 @@ public struct BackupService {
             let category = LedgerCategory(
                 id: record.id, name: record.name, type: type, iconName: record.iconName,
                 colorIdentifier: record.colorIdentifier, seedKey: record.seedKey,
-                sortOrder: record.sortOrder, createdAt: record.createdAt
+                sortOrder: record.sortOrder, isIrregular: type == .expense && (record.isIrregular ?? false),
+                createdAt: record.createdAt
             )
             category.updatedAt = record.updatedAt
             category.archivedAt = record.archivedAt
@@ -178,7 +182,8 @@ public struct BackupService {
             guard let kind = TransactionKind(rawValue: record.kind) else { throw BackupError.invalidTransaction(id: record.id) }
             let transaction = LedgerTransaction(
                 id: record.id, kind: kind, date: record.date, dayKey: DayKey(rawValue: record.dayKey),
-                note: record.note, merchant: record.merchant, createdAt: record.createdAt
+                note: record.note, merchant: record.merchant,
+                isIrregular: kind == .expense && (record.isIrregular ?? false), createdAt: record.createdAt
             )
             transaction.exchangeRateText = record.exchangeRateText
             transaction.recurringOccurrenceKey = record.recurringOccurrenceKey
@@ -245,7 +250,9 @@ public struct BackupService {
                 id: record.id, name: record.name, kind: kind,
                 amount: Money(minorUnits: record.amountMinorUnits,
                               currency: try CurrencyCatalog.definition(for: record.currencyCode)),
-                walletID: record.walletID, categoryID: record.categoryID,
+                walletID: record.walletID, categoryID: kind == .transfer ? nil : record.categoryID,
+                destinationWalletID: kind == .transfer ? record.destinationWalletID : nil,
+                receivedAmountMinorUnits: kind == .transfer ? record.receivedAmountMinorUnits : nil,
                 schedule: RecurrenceSchedule(frequency: frequency, interval: record.interval,
                                              startDate: record.startDate, endDate: record.endDate),
                 note: record.note, reminderEnabled: record.reminderEnabled,

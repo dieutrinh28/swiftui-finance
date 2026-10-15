@@ -8,11 +8,11 @@ import SwiftData
 /// opens a store written with the previous version.
 public enum FinanceMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self, SchemaV3.self]
+        [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4]
     }
 
     /// Adds the Budget entity. No existing data changes.
@@ -23,5 +23,11 @@ public enum FinanceMigrationPlan: SchemaMigrationPlan {
     /// Adds SavingsGoal, SavingsContribution and RecurringTransaction.
     static var migrateV2toV3: MigrationStage {
         .lightweight(fromVersion: SchemaV2.self, toVersion: SchemaV3.self)
+    }
+
+    /// Irregular-expense flags (default false), recurring transfers (new
+    /// optional fields, `categoryID` becomes optional). No data rewrite.
+    static var migrateV3toV4: MigrationStage {
+        .lightweight(fromVersion: SchemaV3.self, toVersion: SchemaV4.self)
     }
 }

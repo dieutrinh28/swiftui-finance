@@ -77,15 +77,30 @@ public struct EntrySnapshot: Sendable, Equatable {
     /// Signed, in the wallet's currency.
     public var amount: Money
     public var categoryID: UUID?
+    /// Expenses only: changes balances but is not spending (see ReportRules).
+    public var isIrregular: Bool
 
-    public init(transactionID: UUID, kind: TransactionKind, day: DayKey, walletID: UUID, amount: Money, categoryID: UUID? = nil) {
+    public init(
+        transactionID: UUID,
+        kind: TransactionKind,
+        day: DayKey,
+        walletID: UUID,
+        amount: Money,
+        categoryID: UUID? = nil,
+        isIrregular: Bool = false
+    ) {
         self.transactionID = transactionID
         self.kind = kind
         self.day = day
         self.walletID = walletID
         self.amount = amount
         self.categoryID = categoryID
+        self.isIrregular = isIrregular
     }
+
+    /// An expense that counts as spending.
+    var isRegularExpense: Bool { kind == .expense && !isIrregular }
+    var isIrregularExpense: Bool { kind == .expense && isIrregular }
 }
 
 public struct CategorySnapshot: Sendable, Equatable, Identifiable {
@@ -93,12 +108,15 @@ public struct CategorySnapshot: Sendable, Equatable, Identifiable {
     public var name: String
     public var iconName: String
     public var colorIdentifier: String
+    /// The parent of a sub-category; nil for top-level categories.
+    public var parentID: UUID?
 
-    public init(id: UUID, name: String, iconName: String, colorIdentifier: String) {
+    public init(id: UUID, name: String, iconName: String, colorIdentifier: String, parentID: UUID? = nil) {
         self.id = id
         self.name = name
         self.iconName = iconName
         self.colorIdentifier = colorIdentifier
+        self.parentID = parentID
     }
 }
 
@@ -136,12 +154,23 @@ public struct CurrencyPosition: Sendable, Equatable {
 }
 
 /// Where the money went, for one currency, in a period. Transfers are excluded.
+///
+/// `expenses` is spending: regular expenses only. Irregular expenses (travel,
+/// a laptop, …) are reported apart in `irregularExpenses`, and `net` includes
+/// both, so it always matches the change in balances.
 public struct CashFlowSummary: Sendable, Equatable {
     public let currency: CurrencyDefinition
     public let income: Money
+    /// Regular expenses (spending).
     public let expenses: Money
-    /// income − expenses
+    public let irregularExpenses: Money
+    /// income − expenses − irregularExpenses
     public let net: Money
+
+    /// Every expense, regular and irregular.
+    public var allExpenses: Money {
+        (try? expenses.adding(irregularExpenses)) ?? expenses
+    }
 }
 
 /// One slice of a breakdown.
@@ -160,13 +189,22 @@ public struct AmountShare: Sendable, Equatable, Identifiable {
     public let share: Decimal
 
     public var id: Key { key }
+
+    public init(key: Key, amount: Money, share: Decimal) {
+        self.key = key
+        self.amount = amount
+        self.share = share
+    }
 }
 
 public struct PeriodCashFlow: Sendable, Equatable, Identifiable {
     public let start: Date
     public let range: DayRange
     public let income: Money
+    /// Regular expenses (spending).
     public let expenses: Money
+    public let irregularExpenses: Money
+    /// income − every expense.
     public let net: Money
 
     public var id: Date { start }
@@ -250,26 +288,31 @@ public enum ReportRules {
     public static func cashFlow(_ snapshot: LedgerSnapshot, in range: DayRange) throws -> [CashFlowSummary] {
         var income: [CurrencyDefinition: Money] = [:]
         var expenses: [CurrencyDefinition: Money] = [:]
+        var irregular: [CurrencyDefinition: Money] = [:]
         for entry in snapshot.entries where range.contains(entry.day) {
             let currency = entry.amount.currency
             switch entry.kind {
             case .income:
                 income[currency] = try (income[currency] ?? .zero(currency)).adding(entry.amount)
+            case .expense where entry.isIrregular:
+                irregular[currency] = try (irregular[currency] ?? .zero(currency)).subtracting(entry.amount)
             case .expense:
                 expenses[currency] = try (expenses[currency] ?? .zero(currency)).subtracting(entry.amount)
             case .transfer:
                 continue
             }
         }
-        let currencies = ordered(Set(snapshot.currencies).union(income.keys).union(expenses.keys))
+        let currencies = ordered(Set(snapshot.currencies).union(income.keys).union(expenses.keys).union(irregular.keys))
         return try currencies.map { currency in
             let incomeTotal = income[currency] ?? .zero(currency)
             let expenseTotal = expenses[currency] ?? .zero(currency)
+            let irregularTotal = irregular[currency] ?? .zero(currency)
             return CashFlowSummary(
                 currency: currency,
                 income: incomeTotal,
                 expenses: expenseTotal,
-                net: try incomeTotal.subtracting(expenseTotal)
+                irregularExpenses: irregularTotal,
+                net: try incomeTotal.subtracting(expenseTotal).subtracting(irregularTotal)
             )
         }
     }
@@ -280,29 +323,78 @@ public enum ReportRules {
         currency: CurrencyDefinition
     ) throws -> CashFlowSummary {
         try cashFlow(snapshot, in: range).first { $0.currency == currency }
-            ?? CashFlowSummary(currency: currency, income: .zero(currency), expenses: .zero(currency), net: .zero(currency))
+            ?? CashFlowSummary(currency: currency, income: .zero(currency), expenses: .zero(currency),
+                               irregularExpenses: .zero(currency), net: .zero(currency))
     }
 
     // MARK: Breakdowns
 
-    /// Expenses per category in `range` for one currency, largest first.
+    /// Spending per category in `range` for one currency, largest first.
+    ///
+    /// Sub-categories are rolled up into their parent, so each top-level
+    /// category appears once with everything under it; `expensesWithin`
+    /// breaks one of them down. Irregular expenses are not spending and are
+    /// left out (see `irregularExpensesByCategory`).
     public static func expensesByCategory(
         _ snapshot: LedgerSnapshot,
         in range: DayRange,
         currency: CurrencyDefinition
     ) throws -> [AmountShare] {
-        try breakdown(snapshot, in: range, currency: currency) { entry in
-            entry.categoryID.map(AmountShare.Key.category) ?? .uncategorized
+        let parents = parentIDs(snapshot)
+        return try breakdown(snapshot, in: range, currency: currency, include: \.isRegularExpense) { entry in
+            entry.categoryID.map { .category(parents[$0] ?? $0) } ?? .uncategorized
         }
     }
 
-    /// Expenses per wallet in `range` for one currency, largest first.
+    /// Spending in one top-level category, split into the category itself
+    /// and each of its sub-categories, largest first. Shares are of the
+    /// category's total.
+    public static func expensesWithin(
+        _ parentID: UUID,
+        _ snapshot: LedgerSnapshot,
+        in range: DayRange,
+        currency: CurrencyDefinition
+    ) throws -> [AmountShare] {
+        let parents = parentIDs(snapshot)
+        return try breakdown(snapshot, in: range, currency: currency, include: { entry in
+            guard entry.isRegularExpense, let category = entry.categoryID else { return false }
+            return category == parentID || parents[category] == parentID
+        }) { .category($0.categoryID ?? parentID) }
+    }
+
+    /// Irregular expenses per (top-level) category in `range`, largest first.
+    public static func irregularExpensesByCategory(
+        _ snapshot: LedgerSnapshot,
+        in range: DayRange,
+        currency: CurrencyDefinition
+    ) throws -> [AmountShare] {
+        let parents = parentIDs(snapshot)
+        return try breakdown(snapshot, in: range, currency: currency, include: \.isIrregularExpense) { entry in
+            entry.categoryID.map { .category(parents[$0] ?? $0) } ?? .uncategorized
+        }
+    }
+
+    /// Spending per wallet in `range` for one currency, largest first.
     public static func expensesByWallet(
         _ snapshot: LedgerSnapshot,
         in range: DayRange,
         currency: CurrencyDefinition
     ) throws -> [AmountShare] {
-        try breakdown(snapshot, in: range, currency: currency) { .wallet($0.walletID) }
+        try breakdown(snapshot, in: range, currency: currency, include: \.isRegularExpense) { .wallet($0.walletID) }
+    }
+
+    /// Top-level categories that have sub-categories with spending in `range`.
+    public static func categoriesWithSubcategorySpending(
+        _ snapshot: LedgerSnapshot,
+        in range: DayRange,
+        currency: CurrencyDefinition
+    ) -> Set<UUID> {
+        let parents = parentIDs(snapshot)
+        return Set(snapshot.entries.compactMap { entry -> UUID? in
+            guard entry.isRegularExpense, entry.amount.currency == currency, range.contains(entry.day),
+                  let category = entry.categoryID else { return nil }
+            return parents[category]
+        })
     }
 
     /// Keeps the `limit` largest slices and folds the rest into one `.other` slice.
@@ -327,7 +419,8 @@ public enum ReportRules {
         try periods.map { period in
             let range = policy.dayRange(for: period)
             let flow = try cashFlow(snapshot, in: range, currency: currency)
-            return PeriodCashFlow(start: period.start, range: range, income: flow.income, expenses: flow.expenses, net: flow.net)
+            return PeriodCashFlow(start: period.start, range: range, income: flow.income, expenses: flow.expenses,
+                                  irregularExpenses: flow.irregularExpenses, net: flow.net)
         }
     }
 
@@ -345,7 +438,7 @@ public enum ReportRules {
         }
     }
 
-    /// Expenses per day in `range` with a running total, for one currency.
+    /// Spending (regular expenses) per day in `range` with a running total, for one currency.
     public static func dailyExpenses(
         _ snapshot: LedgerSnapshot,
         in range: DateRange,
@@ -355,7 +448,7 @@ public enum ReportRules {
         var perDay: [DayKey: Money] = [:]
         let dayRange = policy.dayRange(for: range)
         for entry in snapshot.entries
-        where entry.kind == .expense && entry.amount.currency == currency && dayRange.contains(entry.day) {
+        where entry.isRegularExpense && entry.amount.currency == currency && dayRange.contains(entry.day) {
             perDay[entry.day] = try (perDay[entry.day] ?? .zero(currency)).subtracting(entry.amount)
         }
         var running = Money.zero(currency)
@@ -377,16 +470,23 @@ public enum ReportRules {
         }
     }
 
+    /// Sub-category id → parent id.
+    private static func parentIDs(_ snapshot: LedgerSnapshot) -> [UUID: UUID] {
+        Dictionary(snapshot.categories.compactMap { category in category.parentID.map { (category.id, $0) } },
+                   uniquingKeysWith: { first, _ in first })
+    }
+
     private static func breakdown(
         _ snapshot: LedgerSnapshot,
         in range: DayRange,
         currency: CurrencyDefinition,
+        include: (EntrySnapshot) -> Bool,
         key: (EntrySnapshot) -> AmountShare.Key
     ) throws -> [AmountShare] {
         var totals: [AmountShare.Key: Money] = [:]
         var order: [AmountShare.Key] = []
         for entry in snapshot.entries
-        where entry.kind == .expense && entry.amount.currency == currency && range.contains(entry.day) {
+        where include(entry) && entry.amount.currency == currency && range.contains(entry.day) {
             let slice = key(entry)
             if totals[slice] == nil { order.append(slice) }
             totals[slice] = try (totals[slice] ?? .zero(currency)).subtracting(entry.amount)

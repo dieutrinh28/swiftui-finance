@@ -55,7 +55,7 @@ struct BackupServiceTests {
         #expect(document.format == BackupDocument.formatIdentifier)
         #expect(document.schemaVersion == ModelContainerFactory.currentSchemaVersion)
         #expect(document.wallets.count == 4)
-        #expect(document.transactions.count == try context.fetchCount(FetchDescriptor<LedgerTransaction>()))
+        #expect(try document.transactions.count == context.fetchCount(FetchDescriptor<LedgerTransaction>()))
         #expect(document.budgets.count == 1)
         #expect(document.savingsGoals.count == 1)
         #expect(document.savingsGoals[0].contributions.count == 1)

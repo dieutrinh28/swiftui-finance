@@ -14,6 +14,8 @@ public struct CashFlowDraft {
     public var merchant: String?
     /// Set when recording an occurrence of a recurring transaction.
     public var recurringOccurrenceKey: String?
+    /// Expenses only. nil: the category's default (`LedgerCategory.isIrregular`).
+    public var isIrregular: Bool?
 
     public init(
         kind: TransactionKind,
@@ -23,7 +25,8 @@ public struct CashFlowDraft {
         date: Date,
         note: String? = nil,
         merchant: String? = nil,
-        recurringOccurrenceKey: String? = nil
+        recurringOccurrenceKey: String? = nil,
+        isIrregular: Bool? = nil
     ) {
         self.kind = kind
         self.amount = amount
@@ -33,6 +36,13 @@ public struct CashFlowDraft {
         self.note = note
         self.merchant = merchant
         self.recurringOccurrenceKey = recurringOccurrenceKey
+        self.isIrregular = isIrregular
+    }
+
+    /// What is stored: only expenses can be irregular.
+    var resolvedIsIrregular: Bool {
+        guard kind == .expense else { return false }
+        return isIrregular ?? category?.isIrregular ?? false
     }
 }
 
@@ -48,14 +58,25 @@ public struct TransferDraft {
     public var received: Money?
     public var date: Date
     public var note: String?
+    /// Set when recording an occurrence of a recurring transfer.
+    public var recurringOccurrenceKey: String?
 
-    public init(source: Wallet, destination: Wallet?, sent: Money, received: Money? = nil, date: Date, note: String? = nil) {
+    public init(
+        source: Wallet,
+        destination: Wallet?,
+        sent: Money,
+        received: Money? = nil,
+        date: Date,
+        note: String? = nil,
+        recurringOccurrenceKey: String? = nil
+    ) {
         self.source = source
         self.destination = destination
         self.sent = sent
         self.received = received
         self.date = date
         self.note = note
+        self.recurringOccurrenceKey = recurringOccurrenceKey
     }
 }
 
@@ -88,13 +109,7 @@ public struct TransactionService {
     /// Rejects a recurring occurrence key that is already in the ledger.
     func insertCashFlow(_ draft: CashFlowDraft) throws -> LedgerTransaction {
         let signedAmount = try validate(draft, editing: nil)
-        if draft.recurringOccurrenceKey != nil {
-            let key: String? = draft.recurringOccurrenceKey
-            let existing = try context.fetchCount(FetchDescriptor<LedgerTransaction>(
-                predicate: #Predicate { $0.recurringOccurrenceKey == key }
-            ))
-            guard existing == 0 else { throw LedgerValidationError.duplicateOccurrence }
-        }
+        try requireNewOccurrence(draft.recurringOccurrenceKey)
 
         let transaction = LedgerTransaction(
             kind: draft.kind,
@@ -107,6 +122,7 @@ public struct TransactionService {
         context.insert(transaction)
         transaction.category = draft.category
         transaction.recurringOccurrenceKey = draft.recurringOccurrenceKey
+        transaction.isIrregular = draft.resolvedIsIrregular
 
         let entry = LedgerEntry(amountMinorUnits: signedAmount, currencyCode: draft.wallet.currencyCode)
         context.insert(entry)
@@ -118,13 +134,28 @@ public struct TransactionService {
     public func update(_ transaction: LedgerTransaction, with draft: CashFlowDraft) throws {
         let entry = try editableEntry(of: transaction)
         let signedAmount = try validate(draft, editing: transaction)
+        let note = TextRules.optionalText(draft.note)
+        let merchant = TextRules.optionalText(draft.merchant)
+
+        // Saving the form unchanged is not an edit: nothing is written and
+        // "Last edited" keeps its date.
+        let unchanged = transaction.kindRaw == draft.kind.rawValue
+            && transaction.date == draft.date
+            && transaction.note == note
+            && transaction.merchant == merchant
+            && transaction.category?.id == draft.category?.id
+            && transaction.isIrregular == draft.resolvedIsIrregular
+            && entry.amountMinorUnits == signedAmount
+            && entry.wallet?.id == draft.wallet.id
+        guard !unchanged else { return }
 
         transaction.kindRaw = draft.kind.rawValue
         transaction.date = draft.date
         transaction.dayKey = calendar.dayKey(for: draft.date).rawValue
-        transaction.note = TextRules.optionalText(draft.note)
-        transaction.merchant = TextRules.optionalText(draft.merchant)
+        transaction.note = note
+        transaction.merchant = merchant
         transaction.category = draft.category
+        transaction.isIrregular = draft.resolvedIsIrregular
         transaction.updatedAt = now()
 
         entry.amountMinorUnits = signedAmount
@@ -148,6 +179,7 @@ public struct TransactionService {
     /// Validates and inserts a transfer without saving (see `insertCashFlow`).
     func insertTransfer(_ draft: TransferDraft) throws -> LedgerTransaction {
         let legs = try validate(draft)
+        try requireNewOccurrence(draft.recurringOccurrenceKey)
 
         let transaction = LedgerTransaction(
             kind: .transfer,
@@ -158,6 +190,7 @@ public struct TransactionService {
         )
         context.insert(transaction)
         transaction.exchangeRateText = legs.rateText
+        transaction.recurringOccurrenceKey = draft.recurringOccurrenceKey
 
         let outgoing = LedgerEntry(amountMinorUnits: legs.outgoing, currencyCode: draft.source.currencyCode)
         context.insert(outgoing)
@@ -182,10 +215,21 @@ public struct TransactionService {
             throw LedgerValidationError.archivedWallet
         }
         let legs = try validate(draft)
+        let note = TextRules.optionalText(draft.note)
+
+        // Unchanged: nothing is written (see `update`).
+        let unchanged = transaction.date == draft.date
+            && transaction.note == note
+            && transaction.exchangeRateText == legs.rateText
+            && outgoing.amountMinorUnits == legs.outgoing
+            && outgoing.wallet?.id == draft.source.id
+            && incoming.amountMinorUnits == legs.incoming
+            && incoming.wallet?.id == legs.destination.id
+        guard !unchanged else { return }
 
         transaction.date = draft.date
         transaction.dayKey = calendar.dayKey(for: draft.date).rawValue
-        transaction.note = TextRules.optionalText(draft.note)
+        transaction.note = note
         transaction.exchangeRateText = legs.rateText
         transaction.updatedAt = now()
 
@@ -201,15 +245,36 @@ public struct TransactionService {
     }
 
     /// Deletes the transaction and its entries; wallet balances follow automatically.
+    /// Deleting a transaction recorded from a recurring item makes that
+    /// occurrence due again (its handled key is removed in the same save), so
+    /// a mistaken delete can be recorded again.
     public func delete(_ transaction: LedgerTransaction) throws {
         guard !transaction.liveEntries.contains(where: { $0.wallet?.isArchived ?? false }) else {
             throw LedgerValidationError.archivedWallet
+        }
+        if let key = transaction.recurringOccurrenceKey,
+           let recurringID = RecurrenceRules.parseOccurrenceKey(key)?.recurringID {
+            var descriptor = FetchDescriptor<RecurringTransaction>(predicate: #Predicate { $0.id == recurringID })
+            descriptor.fetchLimit = 1
+            if let recurring = try context.fetch(descriptor).first {
+                recurring.handledOccurrenceKeys.removeAll { $0 == key }
+            }
         }
         context.delete(transaction)
         try context.saveOrRollback()
     }
 
     // MARK: - Private
+
+    /// Rejects a recurring occurrence key that is already in the ledger.
+    private func requireNewOccurrence(_ key: String?) throws {
+        guard let key else { return }
+        let optionalKey: String? = key
+        let existing = try context.fetchCount(FetchDescriptor<LedgerTransaction>(
+            predicate: #Predicate { $0.recurringOccurrenceKey == optionalKey }
+        ))
+        guard existing == 0 else { throw LedgerValidationError.duplicateOccurrence }
+    }
 
     private struct TransferLegs {
         let destination: Wallet

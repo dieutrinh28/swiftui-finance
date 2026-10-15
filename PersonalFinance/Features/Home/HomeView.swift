@@ -24,6 +24,8 @@ struct HomeView: View {
     @State private var model: DashboardModel?
     @State private var dueCount = 0
     @State private var upcoming: [(recurring: RecurringTransaction, occurrence: Occurrence)] = []
+    /// Due and upcoming items couldn't be read: said on screen instead of showing none.
+    @State private var recurringUnreadable = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingNewWallet = false
     @State private var showingNewTransaction = false
@@ -37,40 +39,56 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: app.router.binding(for: .home)) {
             ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.lg) {
+                VStack(alignment: .leading, spacing: Spacing.section) {
                     if wallets.isEmpty {
                         WelcomeCard { showingNewWallet = true }
                     } else {
-                        Button {
-                            showingNewTransaction = true
-                        } label: {
-                            Label("Add Transaction", systemImage: "plus.circle.fill")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                        // Most needed first: where I stand, what needs me, this period, plans, recent activity.
+                        BalanceSummaryCard(state: model?.state) { showingNewTransaction = true }
 
-                        if dueCount > 0 {
-                            DueRecurringCard(count: dueCount)
+                        if recurringUnreadable {
+                            NoticeBanner(
+                                systemImage: "exclamationmark.triangle",
+                                title: "Recurring transactions couldn't be checked",
+                                message: "Due and upcoming items can't be shown right now.",
+                                tone: .attention
+                            )
+                        } else if dueCount > 0 {
+                            NavigationLink(value: AppScreen.due) {
+                                NoticeBanner(
+                                    systemImage: "bell.badge",
+                                    title: "\(dueCount) recurring transaction(s) due",
+                                    message: "Review and record them. Nothing is recorded without you.",
+                                    tone: .attention,
+                                    showsDisclosure: true
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
                         if let model {
-                            DashboardSections(model: model)
-                        }
-                        if !upcoming.isEmpty {
-                            UpcomingRecurringCard(items: upcoming)
+                            CashFlowSection(model: model)
                         }
                         if !budgets.isEmpty {
-                            BudgetsSummaryCard(budgets: Array(budgets.prefix(3)), total: budgets.count)
+                            BudgetsSection(budgets: Array(budgets.prefix(3)), total: budgets.count)
                         }
-                        WalletsSummaryCard(wallets: wallets)
-                        RecentTransactionsCard(transactions: recentTransactions)
+                        RecentTransactionsSection(transactions: recentTransactions)
+                        if let overview = model?.state.value {
+                            SpendingByCategorySection(overview: overview)
+                        }
+                        if !upcoming.isEmpty {
+                            UpcomingSection(items: upcoming)
+                        }
+                        WalletsSection(wallets: wallets)
+                        if let overview = model?.state.value {
+                            MonthlyTrendSection(overview: overview)
+                        }
                     }
-                    PrivacyCard()
+                    PrivacyNote()
                 }
-                .padding(Spacing.lg)
+                .padding(.horizontal, Spacing.screen)
+                .padding(.vertical, Spacing.lg)
             }
-            .background(AppColor.background)
+            .screenBackground()
             .navigationTitle("Home")
             .toolbar {
                 if !wallets.isEmpty {
@@ -97,8 +115,15 @@ struct HomeView: View {
                     model = DashboardModel(policy: app.calendarPolicy) { try reports.snapshot() }
                 }
                 model?.reload()
-                dueCount = (try? app.recurring.dueOccurrences(at: .now).count) ?? 0
-                upcoming = (try? app.recurring.upcoming(from: .now, days: 7)) ?? []
+                do {
+                    dueCount = try app.recurring.dueOccurrences(at: .now).count
+                    upcoming = try app.recurring.upcoming(from: .now, days: 7)
+                    recurringUnreadable = false
+                } catch {
+                    dueCount = 0
+                    upcoming = []
+                    recurringUnreadable = true
+                }
             }
         }
     }
@@ -110,94 +135,39 @@ private struct RefreshKey: Equatable {
     let phase: ScenePhase
 }
 
-/// Recurring items waiting for the user to record or skip them.
-private struct DueRecurringCard: View {
-    let count: Int
-
-    var body: some View {
-        NavigationLink(value: AppScreen.due) {
-            HStack(spacing: Spacing.md) {
-                IconBadge(systemName: "bell.badge", tint: AppColor.liability)
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text("\(count) recurring transaction(s) due")
-                        .font(.headline)
-                    Text("Review and record them. Nothing is recorded without you.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.tertiary)
-            }
-            .cardStyle()
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// Recurring items due in the next seven days.
-private struct UpcomingRecurringCard: View {
-    let items: [(recurring: RecurringTransaction, occurrence: Occurrence)]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Coming up this week")
-                .font(.headline)
-            ForEach(items.indices, id: \.self) { index in
-                let item = items[index]
-                NavigationLink(value: item.recurring) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: Spacing.xxs) {
-                            Text(item.recurring.name).font(.subheadline.weight(.medium))
-                            Text(item.occurrence.date.formatted(.dateTime.weekday(.wide).day().month()))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if let amount = item.recurring.amount, let kind = item.recurring.kind {
-                            MoneyText(money: amount, tone: kind.tone, font: .amountDetail)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .cardStyle()
-    }
-}
-
+/// First run: what the app does, and the one step to start.
 private struct WelcomeCard: View {
     let createWallet: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Welcome")
-                .font(.title2.bold())
-            Text("A simple, private way to see your money clearly.")
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Welcome")
+                    .font(.heroTitle)
+                    .foregroundStyle(AppColor.textPrimary)
+                Text("A simple, private way to see your money clearly.")
+                    .font(.lead)
+                    .foregroundStyle(AppColor.textSecondary)
+            }
 
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                GoalRow(systemImage: "wallet.pass", tint: .blue,
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                GoalRow(systemImage: "wallet.pass", tint: PaletteColor.blue.color,
                         title: "Where your money is",
                         detail: "Cash, bank accounts, e-wallets and cards, each with its own balance.")
-                GoalRow(systemImage: "arrow.left.arrow.right", tint: AppColor.expense,
+                GoalRow(systemImage: "arrow.left.arrow.right", tint: PaletteColor.pink.color,
                         title: "Where it goes",
                         detail: "Income and expenses by category, with transfers kept separate.")
-                GoalRow(systemImage: "target", tint: .green,
+                GoalRow(systemImage: "target", tint: PaletteColor.green.color,
                         title: "What it's for",
                         detail: "Budgets and savings goals that track real spending.")
             }
-            .padding(.vertical, Spacing.sm)
 
             Button(action: createWallet) {
-                Text("Create Your First Wallet")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
+                Label("Add Your First Wallet", systemImage: "plus")
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.appPrimary)
         }
-        .cardStyle()
+        .cardStyle(padding: Spacing.xl)
     }
 }
 
@@ -211,77 +181,37 @@ private struct GoalRow: View {
         HStack(alignment: .top, spacing: Spacing.md) {
             IconBadge(systemName: systemImage, tint: tint)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(title).font(.headline)
-                Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                Text(title)
+                    .font(.cardTitle)
+                    .foregroundStyle(AppColor.textPrimary)
+                Text(detail)
+                    .font(.supporting)
+                    .foregroundStyle(AppColor.textSecondary)
             }
         }
         .accessibilityElement(children: .combine)
     }
 }
 
-private struct WalletsSummaryCard: View {
-    let wallets: [Wallet]
-
+/// A quiet footer: where the data lives, and where to back it up.
+private struct PrivacyNote: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Wallets")
-                .font(.headline)
-            ForEach(wallets) { wallet in
-                NavigationLink(value: wallet) {
-                    WalletRow(wallet: wallet)
-                }
-                .buttonStyle(.plain)
-                if wallet.id != wallets.last?.id {
-                    Divider()
-                }
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Label("Stored only on this iPhone", systemImage: "lock.shield")
+                .font(.label.weight(.semibold))
+                .foregroundStyle(AppColor.textPrimary)
+            Text("No account, no server, no tracking. Deleting the app deletes your data, so keep a backup.")
+                .font(.meta)
+                .foregroundStyle(AppColor.textSecondary)
+            NavigationLink(value: AppScreen.backup) {
+                Text("Backup & Export")
+                    .font(.label.weight(.medium))
+                    .foregroundStyle(AppColor.accent)
+                    .frame(minHeight: 44)
             }
         }
-        .cardStyle()
-    }
-}
-
-private struct RecentTransactionsCard: View {
-    let transactions: [LedgerTransaction]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Recent transactions")
-                .font(.headline)
-            if transactions.isEmpty {
-                Text("Nothing recorded yet. Tap Add Transaction to log your first expense or income.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(transactions) { transaction in
-                    NavigationLink(value: transaction) {
-                        TransactionRow(transaction: transaction)
-                    }
-                    .buttonStyle(.plain)
-                    if transaction.id != transactions.last?.id {
-                        Divider()
-                    }
-                }
-            }
-        }
-        .cardStyle()
-    }
-}
-
-private struct PrivacyCard: View {
-    var body: some View {
-        Label {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("Stored only on this iPhone")
-                    .font(.subheadline.weight(.semibold))
-                Text("No account, no server, no tracking. Deleting the app deletes your data, so keep a backup once export is available in Settings.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        } icon: {
-            Image(systemName: "lock.shield")
-                .foregroundStyle(Color.accentColor)
-        }
-        .cardStyle()
+        .padding(.horizontal, Spacing.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

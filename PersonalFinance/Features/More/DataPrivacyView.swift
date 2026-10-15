@@ -15,32 +15,36 @@ struct DataPrivacyView: View {
             } header: {
                 Text("Where your data lives")
             }
+            .surfaceRows()
 
             Section {
                 Label("If you delete the app or lose this iPhone without a separate backup, your records are lost.", systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(AppColor.liability)
+                    .foregroundStyle(AppColor.warning)
                 Text("iCloud sync is not part of this app. Save a backup file regularly and keep it outside this iPhone.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColor.textSecondary)
                 NavigationLink(value: AppScreen.backup) {
                     Label("Backup & Export", systemImage: "externaldrive")
                 }
             } header: {
                 Text("Backups")
             }
+            .surfaceRows()
 
             Section("Technical") {
                 LabeledContent("Storage", value: storageDescription)
                 LabeledContent("Database version", value: ModelContainerFactory.currentSchemaVersion)
                 LabeledContent("App version", value: appVersion)
             }
+            .surfaceRows()
         }
+        .appGroupedStyle()
         .navigationTitle("Data & Privacy")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var storageDescription: String {
         switch app.storeLocation {
-        case .inMemory: String(localized: "Temporary (in memory)")
+        case .inMemory: String(localized: "Temporary (in memory)", bundle: .l10n)
         case .file(let url): url.lastPathComponent
         }
     }

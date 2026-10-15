@@ -9,6 +9,16 @@ private func day(_ y: Int, _ m: Int, _ d: Int) -> DayKey { DayKey(year: y, month
 struct RecurrenceRulesTests {
     private let policy = CalendarPolicy(timeZone: TimeZone(identifier: "Asia/Ho_Chi_Minh")!)
 
+    @Test func occurrenceKeysParseBack() {
+        let id = UUID()
+        let day = DayKey(year: 2026, month: 10, day: 1)
+        let parsed = RecurrenceRules.parseOccurrenceKey(RecurrenceRules.occurrenceKey(recurringID: id, day: day))
+        #expect(parsed?.recurringID == id)
+        #expect(parsed?.day == day)
+        #expect(RecurrenceRules.parseOccurrenceKey("handled-before-migration") == nil)
+        #expect(RecurrenceRules.parseOccurrenceKey("\(id.uuidString)-abc") == nil)
+    }
+
     private func date(_ iso: String) throws -> Date {
         try #require(ISO8601DateFormatter().date(from: iso))
     }
@@ -176,5 +186,22 @@ struct BudgetAlertRulesTests {
 
         let key = BudgetAlertRules.alertKey(budgetID: UUID(), window: p85.window, threshold: 80)
         #expect(key.hasSuffix("-20261001-80"))
+    }
+
+    /// Only the current period's keys stay; a budget that couldn't be read keeps all of its keys.
+    @Test func sentAlertKeysArePruned() throws {
+        let october = try progress(spent: 850_000).window
+        let food = UUID(), rent = UUID(), deleted = UUID()
+        let current = BudgetAlertRules.alertKey(budgetID: food, window: october, threshold: 80)
+        let lastMonth = "budget-\(food.uuidString)-20260901-80"
+        let rentOld = "budget-\(rent.uuidString)-20260801-100"
+        let gone = BudgetAlertRules.alertKey(budgetID: deleted, window: october, threshold: 100)
+
+        let kept = BudgetAlertRules.keysToKeep(
+            [current, lastMonth, rentOld, gone],
+            currentWindows: [food: october],
+            unreadable: [rent]
+        )
+        #expect(kept == [current, rentOld])
     }
 }

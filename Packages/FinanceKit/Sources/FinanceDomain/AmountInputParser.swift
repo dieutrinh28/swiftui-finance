@@ -11,15 +11,15 @@ extension AmountInputError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .empty:
-            "Please enter an amount."
+            String(localized: "Please enter an amount.", bundle: .l10n)
         case .invalidFormat:
-            "The amount isn't a valid number."
+            String(localized: "The amount isn't a valid number.", bundle: .l10n)
         case .tooManyDecimalPlaces(let allowed):
             allowed == 0
-                ? "This currency doesn't use decimals."
-                : "This currency allows at most \(allowed) decimal places."
+                ? String(localized: "This currency doesn't use decimals.", bundle: .l10n)
+                : String(localized: "This currency allows at most \(allowed) decimal places.", bundle: .l10n)
         case .tooLarge:
-            "The amount is too large."
+            String(localized: "The amount is too large.", bundle: .l10n)
         }
     }
 }

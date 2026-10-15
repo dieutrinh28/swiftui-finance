@@ -12,48 +12,51 @@ struct StoreErrorView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.lg) {
-                    Image(systemName: "externaldrive.badge.exclamationmark")
-                        .font(.system(size: 48))
-                        .foregroundStyle(AppColor.expense)
-                        .accessibilityHidden(true)
-
-                    Text("Your data couldn't be opened")
-                        .font(.title2.bold())
-
-                    Text("Nothing was deleted or reset. Your records stay on this iPhone until the problem is resolved.")
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: Spacing.xl) {
+                    VStack(alignment: .leading, spacing: Spacing.md) {
+                        IconBadge(systemName: "externaldrive.badge.exclamationmark", tint: AppColor.negative, size: .large)
+                            .accessibilityHidden(true)
+                        Text("Your data couldn't be opened")
+                            .font(.heroTitle)
+                            .foregroundStyle(AppColor.textPrimary)
+                        Text("Nothing was deleted or reset. Your records stay on this iPhone until the problem is resolved.")
+                            .font(.lead)
+                            .foregroundStyle(AppColor.textSecondary)
+                    }
 
                     Text(failure.message)
+                        .font(.supporting)
+                        .foregroundStyle(AppColor.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .cardStyle()
 
-                    Button(action: retry) {
-                        Text("Try Again").frame(maxWidth: .infinity)
+                    VStack(spacing: Spacing.md) {
+                        Button("Try Again", action: retry)
+                            .buttonStyle(.appPrimary)
+                        Button {
+                            UIPasteboard.general.string = failure.technicalDetails
+                            copiedDetails = true
+                        } label: {
+                            Label(copiedDetails ? "Details Copied" : "Copy Technical Details",
+                                  systemImage: copiedDetails ? "checkmark" : "doc.on.doc")
+                        }
+                        .buttonStyle(.appSecondary)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-
-                    Button {
-                        UIPasteboard.general.string = failure.technicalDetails
-                        copiedDetails = true
-                    } label: {
-                        Label(copiedDetails ? "Details Copied" : "Copy Technical Details",
-                              systemImage: copiedDetails ? "checkmark" : "doc.on.doc")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
 
                     DisclosureGroup("Technical details") {
                         Text(failure.technicalDetails)
-                            .font(.footnote.monospaced())
+                            .font(.code)
+                            .foregroundStyle(AppColor.textSecondary)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .font(.label)
+                    .tint(AppColor.accent)
                 }
-                .padding(Spacing.lg)
+                .padding(.horizontal, Spacing.screen)
+                .padding(.vertical, Spacing.xl)
             }
-            .background(AppColor.background)
+            .screenBackground()
             .navigationTitle("Database Error")
             .navigationBarTitleDisplayMode(.inline)
         }

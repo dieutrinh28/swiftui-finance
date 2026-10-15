@@ -16,6 +16,20 @@ public enum WalletType: String, CaseIterable, Codable, Sendable {
     public var accountClass: AccountClass {
         self == .creditCard ? .liability : .asset
     }
+
+    /// SF Symbol a new wallet of this type starts with (the user can change it).
+    /// In the domain because `WalletFormModel` applies it when the type changes.
+    public var defaultIconName: String {
+        switch self {
+        case .cash: "banknote"
+        case .bankAccount: "building.columns"
+        case .eWallet: "iphone"
+        case .savingsAccount: "archivebox"
+        case .creditCard: "creditcard"
+        case .investmentAccount: "chart.line.uptrend.xyaxis"
+        case .other: "wallet.pass"
+        }
+    }
 }
 
 /// Assets count towards total assets. Liabilities count towards total liabilities.

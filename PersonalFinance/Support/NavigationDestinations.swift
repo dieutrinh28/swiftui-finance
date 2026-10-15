@@ -43,6 +43,7 @@ extension AppScreen {
         case .notifications: NotificationSettingsView()
         case .backup: BackupView()
         case .dataPrivacy: DataPrivacyView()
+        case .language: LanguageSettingsView()
         }
     }
 }

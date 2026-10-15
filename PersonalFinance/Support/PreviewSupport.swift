@@ -10,7 +10,9 @@ import FinancePersistence
 struct SampleDataPreview: PreviewModifier {
     static func makeSharedContext() async throws -> ModelContainer {
         let container = try ModelContainerFactory.makeContainer(at: .inMemory)
-        try PreviewFixtures.populate(ModelContext(container))
+        let context = ModelContext(container)
+        try PreviewFixtures.populate(context)
+        try DefaultCategorySeeder.localizeUntouched(in: context, to: .previewLanguage)
         return container
     }
 
@@ -25,7 +27,7 @@ struct SampleDataPreview: PreviewModifier {
 struct EmptyStorePreview: PreviewModifier {
     static func makeSharedContext() async throws -> ModelContainer {
         let container = try ModelContainerFactory.makeContainer(at: .inMemory)
-        try DefaultCategorySeeder.seedIfNeeded(in: ModelContext(container))
+        try DefaultCategorySeeder.seedIfNeeded(in: ModelContext(container), language: .previewLanguage)
         return container
     }
 
@@ -39,4 +41,11 @@ struct EmptyStorePreview: PreviewModifier {
 extension PreviewTrait where T == Preview.ViewTraits {
     @MainActor static var sampleData: Self = .modifier(SampleDataPreview())
     @MainActor static var emptyStore: Self = .modifier(EmptyStorePreview())
+}
+
+extension SeedLanguage {
+    /// Previews show built-in categories in the preview's app language.
+    static var previewLanguage: SeedLanguage {
+        SeedLanguage(localization: Bundle.main.preferredLocalizations.first)
+    }
 }

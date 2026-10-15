@@ -300,6 +300,34 @@ struct TransactionServiceTests {
         #expect(try wallet.currentBalance().minorUnits == 1_135_000)
         #expect(try reopened.fetchCount(FetchDescriptor<LedgerCategory>()) == 19)
     }
+
+    /// Saving a transaction unchanged doesn't count as an edit ("Last edited" keeps its date).
+    @Test func savingUnchangedDoesNotTouchLastEdited() throws {
+        let ledger = try Ledger()
+        var clock = Ledger.clock
+        let service = TransactionService(context: ledger.context, calendar: PreviewFixtures.calendarPolicy, now: { clock })
+        let cash = try ledger.makeWallet(opening: 1_000_000)
+        let bank = try ledger.makeWallet("Bank", opening: 1_000_000)
+        let food = try ledger.category("expense.food")
+        let draft = CashFlowDraft(kind: .expense, amount: Money(minorUnits: 50_000, currency: .vnd),
+                                  wallet: cash, category: food, date: Ledger.clock, note: "Lunch")
+        let lunch = try service.create(draft)
+
+        clock = Ledger.clock.addingTimeInterval(3_600)
+        try service.update(lunch, with: draft)
+        #expect(lunch.updatedAt == lunch.createdAt)
+
+        var changed = draft
+        changed.note = "Team lunch"
+        try service.update(lunch, with: changed)
+        #expect(lunch.updatedAt == clock)
+
+        let transfer = TransferDraft(source: cash, destination: bank, sent: Money(minorUnits: 100_000, currency: .vnd),
+                                     date: Ledger.clock)
+        let move = try service.createTransfer(transfer)
+        try service.updateTransfer(move, with: transfer)
+        #expect(move.updatedAt == move.createdAt)
+    }
 }
 
 @Suite("Categories")

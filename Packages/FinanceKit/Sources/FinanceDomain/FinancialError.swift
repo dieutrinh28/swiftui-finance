@@ -15,17 +15,17 @@ extension FinancialError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .unsupportedCurrency(let code):
-            "The currency \(code) is not supported."
+            String(localized: "The currency \(code) is not supported.", bundle: .l10n)
         case .currencyMismatch(let expected, let actual):
-            "Amounts in \(actual) cannot be combined with amounts in \(expected) without an explicit exchange rate."
+            String(localized: "Amounts in \(actual) cannot be combined with amounts in \(expected) without an explicit exchange rate.", bundle: .l10n)
         case .arithmeticOverflow:
-            "The amount is too large to be recorded."
+            String(localized: "The amount is too large to be recorded.", bundle: .l10n)
         case .invalidExchangeRate:
-            "The exchange rate must be a positive number between two different currencies."
+            String(localized: "The exchange rate must be a positive number between two different currencies.", bundle: .l10n)
         case .invalidDateRange:
-            "The start date must be before the end date."
+            String(localized: "The start date must be before the end date.", bundle: .l10n)
         case .nonPositiveAmount:
-            "The amount must be greater than zero."
+            String(localized: "The amount must be greater than zero.", bundle: .l10n)
         }
     }
 }

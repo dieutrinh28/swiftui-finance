@@ -102,6 +102,20 @@ struct AppRouterTests {
         #expect(router.selectedTab == .budgets)
         #expect(router.depth(of: .budgets) == 0)
     }
+
+    /// A budget that can't be read is reported, not silently skipped.
+    @Test func unreadableBudgetIsReported() {
+        struct ReadError: Error {}
+        let router = AppRouter()
+        router.receive(.budget(UUID()))
+        router.resolvePending { _ in throw ReadError() }
+        #expect(router.selectedTab == .budgets)
+        #expect(router.depth(of: .budgets) == 0)
+        #expect(router.routeFailure is ReadError)
+
+        router.clearRouteFailure()
+        #expect(router.routeFailure == nil)
+    }
 }
 
 /// Small helper to build a `NavigationPath` from screens.

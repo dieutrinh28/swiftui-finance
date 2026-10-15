@@ -184,6 +184,8 @@ public struct SavingsService {
     private func validate(_ draft: SavingsGoalDraft) throws -> String {
         let name = try TextRules.normalizedName(draft.name)
         guard draft.target.isPositive else { throw LedgerValidationError.nonPositiveAmount }
+        // Archived wallets are never offered (I15); a goal can't be kept in one.
+        if draft.linkedWallet?.isArchived == true { throw LedgerValidationError.archivedWallet }
         if let wallet = draft.linkedWallet, wallet.currencyCode != draft.target.currency.code {
             throw LedgerValidationError.currencyMismatch(
                 walletCurrency: wallet.currencyCode, amountCurrency: draft.target.currency.code

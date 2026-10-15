@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import FinanceDomain
 import FinancePersistence
+import FinanceFeatures
 
 /// A wallet's balance, opening balance and transaction history.
 struct WalletDetailView: View {
@@ -30,21 +31,25 @@ struct WalletDetailView: View {
             Section {
                 header
             }
+            .highlightedRows()
 
             Section("Transactions") {
                 let history = wallet.transactionsNewestFirst
                 if history.isEmpty {
                     Text("No transactions in this wallet yet.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColor.textSecondary)
                 } else {
                     ForEach(history) { transaction in
                         NavigationLink(value: transaction) {
-                            TransactionRow(transaction: transaction, showsWallet: false, perspective: wallet)
+                            TransactionRow(transaction: transaction, showsWallet: false, showsDate: true,
+                                           perspective: wallet)
                         }
                     }
                 }
             }
+            .surfaceRows()
         }
+        .appGroupedStyle()
         .navigationTitle(wallet.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
@@ -68,37 +73,51 @@ struct WalletDetailView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(spacing: Spacing.md) {
-                IconBadge(systemName: wallet.iconName, tint: PaletteColor(identifier: wallet.colorIdentifier).color)
-                Text(wallet.typeWithCurrency)
-                    .foregroundStyle(.secondary)
+                IconBadge(systemName: wallet.iconName,
+                          tint: PaletteColor(identifier: wallet.colorIdentifier).color, size: .large)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(wallet.name)
+                        .font(.cardTitle)
+                        .foregroundStyle(AppColor.textPrimary)
+                    Text(wallet.typeWithCurrency)
+                        .font(.meta)
+                        .foregroundStyle(AppColor.textSecondary)
+                }
             }
-            Text(wallet.type.accountClass == .liability ? "Current balance (negative = owed)" : "Current balance")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            WalletBalanceText(wallet: wallet, font: .amountHero)
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(wallet.type.accountClass == .liability ? "Current balance (below zero = owed)" : "Current balance")
+                    .font(.label)
+                    .foregroundStyle(AppColor.textSecondary)
+                WalletBalanceText(wallet: wallet, font: .amountHero)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .accessibilityElement(children: .combine)
             if let opening = wallet.openingBalance {
                 HStack {
                     Text("Opening balance")
+                        .foregroundStyle(AppColor.textSecondary)
                     Spacer()
                     MoneyText(money: opening, font: .amountDetail)
                 }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.label)
+                .accessibilityElement(children: .combine)
             }
             if wallet.isArchived {
-                Label("Archived: restore this wallet to add or change transactions.", systemImage: "archivebox")
-                    .font(.footnote)
-                    .foregroundStyle(AppColor.liability)
+                NoticeBanner(systemImage: "archivebox",
+                             title: "Archived",
+                             message: "Restore this wallet to add or change transactions.",
+                             tone: .attention)
             }
             if let note = wallet.note {
                 Text(note)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.meta)
+                    .foregroundStyle(AppColor.textSecondary)
             }
         }
-        .padding(.vertical, Spacing.xs)
+        .padding(.vertical, Spacing.sm)
     }
 
     @ToolbarContentBuilder
@@ -112,7 +131,7 @@ struct WalletDetailView: View {
                 }
             }
         }
-        ToolbarItem(placement: .secondaryAction) {
+        ToolbarItem(placement: .topBarTrailing) {  // not .secondaryAction: iOS nests that in its own "…" overflow menu
             Menu {
                 if wallet.isArchived {
                     Button("Restore Wallet", systemImage: "arrow.uturn.backward", action: restore)
@@ -144,7 +163,7 @@ struct WalletDetailView: View {
             try app.wallets.delete(wallet)
             dismiss()
         } catch {
-            self.error = AlertError(error, title: String(localized: "Couldn't Delete"))
+            self.error = AlertError(error, title: String(localized: "Couldn't Delete", bundle: .l10n))
         }
     }
 }

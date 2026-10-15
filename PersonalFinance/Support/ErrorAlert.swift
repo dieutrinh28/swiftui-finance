@@ -6,7 +6,7 @@ struct AlertError: Identifiable {
     let title: String
     let message: String
 
-    init(_ error: any Error, title: String = String(localized: "Couldn't Save")) {
+    init(_ error: any Error, title: String = String(localized: "Couldn't Save", bundle: .l10n)) {
         self.title = title
         self.message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }

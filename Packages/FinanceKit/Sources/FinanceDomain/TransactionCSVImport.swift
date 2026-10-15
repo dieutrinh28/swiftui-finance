@@ -89,12 +89,16 @@ public struct ImportedTransaction: Equatable, Sendable {
     public let received: Money?
     public let note: String?
     public let merchant: String?
+    /// Expenses only. nil when the file has no "Irregular" column (or the
+    /// cell is empty): the category's default applies.
+    public let isIrregular: Bool?
 
     public init(line: Int, id: UUID?, date: Date, kind: TransactionKind, walletName: String, amount: Money,
-                categoryPath: String?, destinationName: String?, received: Money?, note: String?, merchant: String?) {
+                categoryPath: String?, destinationName: String?, received: Money?, note: String?, merchant: String?,
+                isIrregular: Bool? = nil) {
         self.line = line; self.id = id; self.date = date; self.kind = kind; self.walletName = walletName
         self.amount = amount; self.categoryPath = categoryPath; self.destinationName = destinationName
-        self.received = received; self.note = note; self.merchant = merchant
+        self.received = received; self.note = note; self.merchant = merchant; self.isIrregular = isIrregular
     }
 }
 
@@ -118,19 +122,19 @@ public enum ImportProblem: Equatable, Sendable {
 extension ImportProblem {
     public var message: String {
         switch self {
-        case .invalidDate(let text): "Date “\(text)” is not recognised (use 2026-10-13 or 13/10/2026)."
-        case .invalidType(let text): "Type “\(text)” must be Income, Expense or Transfer."
-        case .invalidAmount(let text): "Amount “\(text)” is not a number."
-        case .unsupportedCurrency(let code): "Currency “\(code)” is not supported."
-        case .zeroAmount: "The amount is zero."
-        case .missingWallet: "The wallet is empty."
-        case .missingCategory: "Income and expenses need a category."
-        case .missingDestination: "A transfer needs a “To wallet”."
-        case .sameWallet: "A transfer needs two different wallets."
-        case .archivedWallet(let name): "Wallet “\(name)” is archived. Restore it first."
-        case .archivedCategory(let name): "Category “\(name)” is archived. Restore it first."
-        case .walletCurrencyMismatch(let wallet, let currency): "Wallet “\(wallet)” doesn't use \(currency)."
-        case .rejected(let error): error.errorDescription ?? "The row was rejected."
+        case .invalidDate(let text): String(localized: "Date “\(text)” is not recognised (use 2026-10-13 or 13/10/2026).", bundle: .l10n)
+        case .invalidType(let text): String(localized: "Type “\(text)” must be Income, Expense or Transfer.", bundle: .l10n)
+        case .invalidAmount(let text): String(localized: "Amount “\(text)” is not a number.", bundle: .l10n)
+        case .unsupportedCurrency(let code): String(localized: "Currency “\(code)” is not supported.", bundle: .l10n)
+        case .zeroAmount: String(localized: "The amount is zero.", bundle: .l10n)
+        case .missingWallet: String(localized: "The wallet is empty.", bundle: .l10n)
+        case .missingCategory: String(localized: "Income and expenses need a category.", bundle: .l10n)
+        case .missingDestination: String(localized: "A transfer needs a “To wallet”.", bundle: .l10n)
+        case .sameWallet: String(localized: "A transfer needs two different wallets.", bundle: .l10n)
+        case .archivedWallet(let name): String(localized: "Wallet “\(name)” is archived. Restore it first.", bundle: .l10n)
+        case .archivedCategory(let name): String(localized: "Category “\(name)” is archived. Restore it first.", bundle: .l10n)
+        case .walletCurrencyMismatch(let wallet, let currency): String(localized: "Wallet “\(wallet)” doesn't use \(currency).", bundle: .l10n)
+        case .rejected(let error): error.errorDescription ?? String(localized: "The row was rejected.", bundle: .l10n)
         }
     }
 }
@@ -156,11 +160,11 @@ extension ImportFileError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notText:
-            "This file is not a text CSV file."
+            String(localized: "This file is not a text CSV file.", bundle: .l10n)
         case .empty:
-            "This file has no transactions."
+            String(localized: "This file has no transactions.", bundle: .l10n)
         case .missingColumns(let columns):
-            "This file is missing the column(s) \(columns.joined(separator: ", ")). Import works with CSV files exported by this app."
+            String(localized: "This file is missing the column(s) \(columns.joined(separator: ", ")). Import works with CSV files exported by this app.", bundle: .l10n)
         }
     }
 }
@@ -245,7 +249,8 @@ public struct TransactionCSVParser: Sendable {
             guard let category = Self.optional(value("Category")) else { throw fail(.missingCategory) }
             return ImportedTransaction(line: line, id: id, date: date, kind: kind, walletName: walletName,
                                        amount: amount, categoryPath: category, destinationName: nil,
-                                       received: nil, note: note, merchant: merchant)
+                                       received: nil, note: note, merchant: merchant,
+                                       isIrregular: kind == .expense ? Self.flag(value("Irregular")) : nil)
         case .transfer:
             guard let destination = Self.optional(value("To wallet")) else { throw fail(.missingDestination) }
             guard Self.key(destination) != Self.key(walletName) else { throw fail(.sameWallet) }
@@ -327,10 +332,19 @@ public struct TransactionCSVParser: Sendable {
 
     private static func kind(_ text: String) -> TransactionKind? {
         switch key(text) {
-        case "income", "thu", "thu nhap": .income
-        case "expense", "chi", "chi tieu": .expense
-        case "transfer", "chuyen khoan": .transfer
+        case "income", "thu", "thu nhap", "収入": .income
+        case "expense", "chi", "chi tieu", "支出": .expense
+        case "transfer", "chuyen khoan", "chuyen tien", "振替", "送金": .transfer
         default: nil
+        }
+    }
+
+    /// "Yes", "true", "1", "x", "có", "はい" → true; "No", "false", "0", "không", "いいえ" → false; empty → nil.
+    static func flag(_ text: String) -> Bool? {
+        switch key(text) {
+        case "": nil
+        case "yes", "y", "true", "1", "x", "co", "はい": true
+        default: false
         }
     }
 

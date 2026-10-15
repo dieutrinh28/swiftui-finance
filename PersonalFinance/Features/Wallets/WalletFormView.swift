@@ -1,175 +1,129 @@
 import SwiftUI
 import FinanceDomain
 import FinancePersistence
+import FinanceFeatures
 
-/// Create or edit a wallet. Edits are held in local state and only reach the
-/// store through `WalletService` when the user taps Save.
+/// Create or edit a wallet. Logic lives in `WalletFormModel`; nothing reaches
+/// the store until the user taps Save.
 struct WalletFormView: View {
-    enum Mode {
-        case create
-        case edit(Wallet)
-    }
-
-    let mode: Mode
+    let mode: WalletFormModel.Mode
     /// Called with the saved wallet, e.g. to select it in the transaction form.
     var onSaved: ((Wallet) -> Void)? = nil
 
     @Environment(AppContainer.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @State private var model: WalletFormModel?
 
-    @State private var name = ""
-    @State private var type: WalletType = .cash
-    @State private var currency: CurrencyDefinition = CurrencyCatalog.defaultCurrency
-    @State private var openingText = ""
-    @State private var iconName = WalletType.cash.defaultIconName
-    @State private var colorIdentifier = PaletteColor.green.rawValue
-    @State private var note = ""
-    @State private var iconWasChosen = false
-    @State private var didLoad = false
-    @State private var error: AlertError?
-
-    private var editingWallet: Wallet? {
-        if case .edit(let wallet) = mode { return wallet }
-        return nil
+    var body: some View {
+        Group {
+            if let model {
+                WalletFormContent(model: model, onSaved: onSaved)
+            } else {
+                ProgressView()
+            }
+        }
+        .onAppear {
+            guard model == nil else { return }
+            model = WalletFormModel(mode: mode, service: app.wallets)
+        }
     }
+}
 
-    private var currencyLocked: Bool { editingWallet?.hasHistory ?? false }
+private struct WalletFormContent: View {
+    @Bindable var model: WalletFormModel
+    let onSaved: ((Wallet) -> Void)?
 
-    private var isLiability: Bool { type.accountClass == .liability }
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name", text: $name)
+                    TextField("Name", text: $model.name)
                         .textInputAutocapitalization(.words)
-                    Picker("Type", selection: $type) {
+                    Picker("Type", selection: $model.type) {
                         ForEach(WalletType.allCases, id: \.self) { type in
                             Label(type.displayName, systemImage: type.defaultIconName).tag(type)
                         }
                     }
                 }
+                .surfaceRows()
 
-                if CurrencyCatalog.offersChoice(including: currency) {
+                if model.showsCurrencyPicker {
                     Section {
-                        Picker("Currency", selection: $currency) {
-                            ForEach(CurrencyCatalog.pickerOptions(including: currency), id: \.self) { currency in
-                                Text(currencyLabel(currency)).tag(currency)
+                        Picker("Currency", selection: $model.currency) {
+                            ForEach(model.currencyOptions, id: \.self) { currency in
+                                Text(verbatim: currencyLabel(currency)).tag(currency)
                             }
                         }
-                        .disabled(currencyLocked)
+                        .disabled(model.currencyLocked)
                     } footer: {
-                        if currencyLocked {
+                        if model.currencyLocked {
                             Text("The currency can't change once the wallet has transactions.")
                         }
                     }
+                    .surfaceRows()
                 }
 
                 Section {
-                    AmountField(text: $openingText, currency: currency)
+                    AmountField(text: $model.openingText, currency: model.currency)
                 } header: {
-                    Text(isLiability ? "Amount owed now" : "Opening balance")
+                    Text(model.isLiability ? "Amount owed now" : "Opening balance")
                 } footer: {
-                    Text(isLiability
+                    Text(model.isLiability
                          ? "What you currently owe on this card. It is recorded as debt, not as an expense."
                          : "Money already in this wallet. It is not counted as income. Leave empty for zero.")
                 }
+                .surfaceRows()
 
                 Section("Appearance") {
                     HStack {
                         Spacer()
-                        IconBadge(systemName: iconName, tint: PaletteColor(identifier: colorIdentifier).color)
-                            .scaleEffect(1.4)
+                        IconBadge(systemName: model.iconName, tint: PaletteColor(identifier: model.colorIdentifier).color,
+                                  size: .large)
                             .padding(.vertical, Spacing.sm)
                         Spacer()
                     }
                     SymbolPicker(
-                        selection: Binding(get: { iconName }, set: { iconName = $0; iconWasChosen = true }),
+                        selection: $model.iconName,
                         symbols: SymbolCatalog.wallets,
-                        tint: PaletteColor(identifier: colorIdentifier).color
+                        tint: PaletteColor(identifier: model.colorIdentifier).color
                     )
-                    PalettePicker(selection: $colorIdentifier)
+                    PalettePicker(selection: $model.colorIdentifier)
                 }
+                .surfaceRows()
 
                 Section("Note") {
-                    TextField("Optional", text: $note, axis: .vertical)
+                    TextField("Optional", text: $model.note, axis: .vertical)
+                }
+                .surfaceRows()
+            }
+            .appGroupedStyle()
+            .keyboardDismissal()
+            .safeAreaInset(edge: .bottom) {
+                PrimaryActionBar(title: model.isEditing ? "Save Changes" : "Save Wallet", isEnabled: model.canSave) {
+                    if let saved = model.save() {
+                        onSaved?(saved)
+                        dismiss()
+                    }
                 }
             }
-            .navigationTitle(editingWallet == nil ? "New Wallet" : "Edit Wallet")
+            .navigationTitle(model.isEditing ? "Edit Wallet" : "New Wallet")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
-                        .disabled(!canSave)
-                }
             }
-            .onChange(of: type) { _, newType in
-                if !iconWasChosen { iconName = newType.defaultIconName }
-            }
-            .onAppear(perform: loadIfNeeded)
-            .errorAlert($error)
+            .errorAlert(Binding(
+                get: { model.failure.map { AlertError($0) } },
+                set: { if $0 == nil { model.clearFailure() } }
+            ))
         }
-    }
-
-    private var canSave: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (try? parsedOpening()) != nil
-    }
-
-    private func parsedOpening() throws -> Money {
-        if openingText.trimmingCharacters(in: .whitespaces).isEmpty { return .zero(currency) }
-        return try AmountInputParser().parse(openingText, currency: currency)
     }
 
     private func currencyLabel(_ currency: CurrencyDefinition) -> String {
-        let name = Locale.current.localizedString(forCurrencyCode: currency.code) ?? currency.code
+        let name = Locale.app.localizedString(forCurrencyCode: currency.code) ?? currency.code
         return "\(currency.code) · \(name)"
-    }
-
-    private func loadIfNeeded() {
-        guard !didLoad else { return }
-        didLoad = true
-        guard let wallet = editingWallet else { return }
-
-        name = wallet.name
-        type = wallet.type
-        currency = wallet.currency ?? CurrencyCatalog.defaultCurrency
-        if let opening = wallet.openingBalance,
-           let entered = try? WalletRules.enteredOpeningBalance(stored: opening, accountClass: wallet.type.accountClass),
-           !entered.isZero {
-            openingText = AmountInputParser().editingText(for: entered)
-        }
-        iconName = wallet.iconName
-        colorIdentifier = wallet.colorIdentifier
-        note = wallet.note ?? ""
-        iconWasChosen = true
-    }
-
-    private func save() {
-        do {
-            let draft = WalletDraft(
-                name: name,
-                type: type,
-                currency: currency,
-                enteredOpeningBalance: try parsedOpening(),
-                iconName: iconName,
-                colorIdentifier: colorIdentifier,
-                note: note
-            )
-            let saved: Wallet
-            if let wallet = editingWallet {
-                try app.wallets.update(wallet, with: draft)
-                saved = wallet
-            } else {
-                saved = try app.wallets.create(draft)
-            }
-            onSaved?(saved)
-            dismiss()
-        } catch {
-            self.error = AlertError(error)
-        }
     }
 }
 

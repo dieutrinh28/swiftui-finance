@@ -44,7 +44,7 @@ struct StoreFailure {
 
     init(error: any Error, storeURL: URL?) {
         self.message = (error as? LocalizedError)?.errorDescription
-            ?? String(localized: "The local database could not be opened.")
+            ?? String(localized: "The local database could not be opened.", bundle: .l10n)
         var details = String(describing: error)
         if let storeURL {
             details += "\nStore: \(storeURL.path(percentEncoded: false))"

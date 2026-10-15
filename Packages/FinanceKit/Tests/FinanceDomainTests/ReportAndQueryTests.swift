@@ -125,8 +125,11 @@ struct ReportRulesTests {
     }
 
     @Test func topFoldsTheRestIntoOther() throws {
-        let shares = (1...5).map { index in
-            AmountShare(key: .category(UUID()), amount: vnd(Int64(100 * (6 - index))), share: Decimal(6 - index) / 15)
+        // Explicit types: the inferred version is too slow for the type checker.
+        let shares: [AmountShare] = (1...5).map { (index: Int) -> AmountShare in
+            let weight = 6 - index
+            return AmountShare(key: .category(UUID()), amount: vnd(Int64(100 * weight)),
+                               share: Decimal(weight) / Decimal(15))
         }
         let folded = try ReportRules.top(shares, limit: 3)
 

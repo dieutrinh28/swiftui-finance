@@ -33,20 +33,24 @@ struct NotificationSettingsView: View {
             } footer: {
                 Text("Used for reminders on the day a recurring transaction is due, and for budget alerts.")
             }
+            .surfaceRows()
 
             Section {
                 Toggle("Budget alerts", isOn: $budgetAlertsEnabled)
             } footer: {
-                Text("A notification when a budget reaches 80 % and 100 % of its amount, once per budget period.")
+                Text("A notification when a budget reaches one of its alert levels (set on each budget, 80 percent and used up by default), once per budget period.")
             }
+            .surfaceRows()
 
             Section("How reminders work") {
                 Label("iOS decides when notifications are delivered, and Focus or Settings can silence them.", systemImage: "iphone")
                 Label("The app never runs in the background and never records a transaction by itself. Due items wait until you open the app and confirm them.", systemImage: "hand.raised")
                 Label("Only the next few reminders are scheduled at a time (iOS allows up to 64); the list is refreshed whenever you open the app or change data.", systemImage: "clock.arrow.circlepath")
             }
-            .font(.footnote)
+            .surfaceRows()
+            .font(.meta)
         }
+        .appGroupedStyle()
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .task { await refresh() }
@@ -54,10 +58,10 @@ struct NotificationSettingsView: View {
 
     private var statusText: String {
         switch status {
-        case .authorized, .provisional, .ephemeral: String(localized: "Allowed")
-        case .denied: String(localized: "Turned off")
-        case .notDetermined: String(localized: "Not asked yet")
-        @unknown default: String(localized: "Unknown")
+        case .authorized, .provisional, .ephemeral: String(localized: "Allowed", bundle: .l10n)
+        case .denied: String(localized: "Turned off", bundle: .l10n)
+        case .notDetermined: String(localized: "Not asked yet", bundle: .l10n)
+        @unknown default: String(localized: "Unknown", bundle: .l10n)
         }
     }
 

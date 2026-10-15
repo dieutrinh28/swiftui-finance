@@ -117,6 +117,16 @@ public enum RecurrenceRules {
         "\(recurringID.uuidString)-\(day.rawValue)"
     }
 
+    /// The definition and day an occurrence key was made from; nil for anything else.
+    public static func parseOccurrenceKey(_ key: String) -> (recurringID: UUID, day: DayKey)? {
+        let parts = key.split(separator: "-")
+        guard parts.count == 6,
+              let id = UUID(uuidString: parts[0..<5].joined(separator: "-")),
+              let raw = Int(parts[5]), (1000_01_01...9999_12_31).contains(raw)
+        else { return nil }
+        return (id, DayKey(rawValue: raw))
+    }
+
     /// Reminder times for the next `count` occurrences after `now`:
     /// each occurrence day at `minutesAfterMidnight`.
     public static func reminderDates(

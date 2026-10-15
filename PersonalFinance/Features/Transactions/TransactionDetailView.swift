@@ -25,19 +25,34 @@ struct TransactionDetailView: View {
     private var content: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    Text(transaction.kind?.displayName ?? String(localized: "Unknown"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    HStack(spacing: Spacing.md) {
+                        IconBadge(systemName: headerIcon, tint: headerTint, size: .large)
+                        VStack(alignment: .leading, spacing: Spacing.xxs) {
+                            Text(headerTitle)
+                                .font(.cardTitle)
+                                .foregroundStyle(AppColor.textPrimary)
+                            Text(transaction.kind?.displayName ?? String(localized: "Unknown", bundle: .l10n))
+                                .font(.meta)
+                                .foregroundStyle(AppColor.textSecondary)
+                        }
+                    }
                     if let amount = transaction.displayAmount, let kind = transaction.kind {
                         MoneyText(money: amount, tone: kind.tone, font: .amountHero)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     } else {
-                        Text("This record is incomplete and can't be shown.")
-                            .foregroundStyle(AppColor.expense)
+                        Label("This record is incomplete and can't be shown.", systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(AppColor.negative)
                     }
+                    Text(transaction.date.formatted(Date.FormatStyle(date: .complete, time: .shortened).locale(.app)))
+                        .font(.meta)
+                        .foregroundStyle(AppColor.textSecondary)
                 }
-                .padding(.vertical, Spacing.xs)
+                .padding(.vertical, Spacing.sm)
+                .accessibilityElement(children: .combine)
             }
+            .highlightedRows()
 
             if transaction.kind == .transfer {
                 transferSection
@@ -47,7 +62,7 @@ struct TransactionDetailView: View {
                 if let category = transaction.category {
                     NavigationLink(value: category) {
                         LabeledContent("Category") {
-                            Label(category.name, systemImage: category.iconName)
+                            InlineLabel(verbatim: category.path, systemImage: category.iconName)
                         }
                     }
                 }
@@ -56,7 +71,11 @@ struct TransactionDetailView: View {
                         LabeledContent("Wallet", value: wallet.name)
                     }
                 }
-                LabeledContent("Date", value: transaction.date.formatted(date: .long, time: .shortened))
+                if transaction.isIrregular {
+                    LabeledContent("Spending") {
+                        InlineLabel("Irregular, not counted", systemImage: "sparkles")
+                    }
+                }
                 if let merchant = transaction.merchant {
                     LabeledContent("Merchant", value: merchant)
                 }
@@ -64,36 +83,42 @@ struct TransactionDetailView: View {
                     LabeledContent("Note", value: note)
                 }
             }
+            .surfaceRows()
 
             Section {
-                LabeledContent("Created", value: transaction.createdAt.formatted(date: .abbreviated, time: .shortened))
+                LabeledContent("Created", value: transaction.createdAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(.app)))
                 if transaction.updatedAt != transaction.createdAt {
-                    LabeledContent("Last edited", value: transaction.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                    LabeledContent("Last edited", value: transaction.updatedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(.app)))
                 }
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+            .font(.meta)
+            .foregroundStyle(AppColor.textSecondary)
+            .surfaceRows()
 
-            if transaction.isEditable {
+            if !transaction.isEditable {
                 Section {
-                    Button("Delete Transaction", role: .destructive) {
-                        confirmingDelete = true
-                    }
+                    Label("This transaction involves an archived wallet. Restore the wallet to edit or delete it.",
+                          systemImage: "archivebox")
+                        .font(.meta)
+                        .foregroundStyle(AppColor.textSecondary)
                 }
-            } else {
-                Section {
-                    Text("This transaction involves an archived wallet. Restore the wallet to edit or delete it.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                .surfaceRows()
             }
         }
+        .appGroupedStyle()
         .navigationTitle("Transaction")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if transaction.isEditable {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Edit") { showingEdit = true }
+                ToolbarItem(placement: .topBarTrailing) {  // not .secondaryAction: iOS nests that in its own "…" overflow menu
+                    Menu {
+                        Button("Edit Transaction", systemImage: "pencil") { showingEdit = true }
+                        Button("Delete Transaction", systemImage: "trash", role: .destructive) {
+                            confirmingDelete = true
+                        }
+                    } label: {
+                        Label("More", systemImage: "ellipsis.circle")
+                    }
                 }
             }
         }
@@ -101,7 +126,7 @@ struct TransactionDetailView: View {
             TransactionFormView(mode: .edit(transaction))
         }
         .confirmationDialog("Delete this transaction?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive, action: delete)
+            Button("Delete Transaction", role: .destructive, action: delete)
         } message: {
             Text("Wallet balances will be updated. This can't be undone.")
         }
@@ -138,12 +163,28 @@ struct TransactionDetailView: View {
             if let rate = transaction.exchangeRate,
                let from = transaction.transferSource?.currencyCode,
                let to = transaction.transferDestination?.currencyCode {
-                LabeledContent("Exchange rate", value: "1 \(from) = \(rate.formatted(.number.precision(.fractionLength(0...6)))) \(to)")
+                LabeledContent("Exchange rate", value: "1 \(from) = \(rate.formatted(.number.precision(.fractionLength(0...6)).locale(.app))) \(to)")
             }
             Text("Transfers move money between your wallets. They are not counted as income, expenses or budget spending.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.meta)
+                .foregroundStyle(AppColor.textSecondary)
         }
+        .surfaceRows()
+    }
+
+    private var headerTitle: String {
+        if transaction.kind == .transfer { return String(localized: "Transfer", bundle: .l10n) }
+        return transaction.category?.name ?? transaction.kind?.displayName ?? String(localized: "Unknown", bundle: .l10n)
+    }
+
+    private var headerIcon: String {
+        if transaction.kind == .transfer { return "arrow.left.arrow.right" }
+        return transaction.category?.iconName ?? "questionmark.circle"
+    }
+
+    private var headerTint: Color {
+        if transaction.kind == .transfer { return AppColor.transfer }
+        return PaletteColor(identifier: transaction.category?.colorIdentifier ?? "gray").color
     }
 
     private func delete() {
@@ -151,7 +192,7 @@ struct TransactionDetailView: View {
             try app.transactions.delete(transaction)
             dismiss()
         } catch {
-            self.error = AlertError(error, title: String(localized: "Couldn't Delete"))
+            self.error = AlertError(error, title: String(localized: "Couldn't Delete", bundle: .l10n))
         }
     }
 }

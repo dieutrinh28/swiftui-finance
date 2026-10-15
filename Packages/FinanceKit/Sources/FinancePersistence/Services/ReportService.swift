@@ -43,22 +43,24 @@ public struct ReportService {
                     day: transaction.day,
                     walletID: wallet.id,
                     amount: amount,
-                    categoryID: transaction.category?.id
+                    categoryID: transaction.category?.id,
+                    isIrregular: transaction.isIrregular
                 )
             },
             categories: categories.map {
-                CategorySnapshot(id: $0.id, name: $0.name, iconName: $0.iconName, colorIdentifier: $0.colorIdentifier)
+                CategorySnapshot(id: $0.id, name: $0.name, iconName: $0.iconName, colorIdentifier: $0.colorIdentifier,
+                                 parentID: $0.parent?.id)
             }
         )
     }
 }
 
-extension SchemaV1.LedgerTransaction {
+extension LedgerTransaction {
     /// Search/filter view of this transaction; nil when the record is malformed.
     public var summary: TransactionSummary? {
         guard let kind, let amount = displayAmount else { return nil }
         let wallets = liveEntries.compactMap(\.wallet)
-        let text = [note, merchant, category?.name]
+        let text = [note, merchant, category?.name, category?.parent?.name]
             .compactMap { $0 }
             + wallets.map(\.name)
         return TransactionSummary(
@@ -69,6 +71,7 @@ extension SchemaV1.LedgerTransaction {
             amount: amount,
             walletIDs: Set(wallets.map(\.id)),
             categoryID: category?.id,
+            parentCategoryID: category?.parent?.id,
             searchableText: text.joined(separator: " · ")
         )
     }

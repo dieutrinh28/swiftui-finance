@@ -31,6 +31,13 @@ struct BudgetFormView: View {
     }
 }
 
+/// "80 %" in the user's locale, for a budget alert threshold.
+enum BudgetAlertLevel {
+    static func text(_ threshold: Int) -> String {
+        (Double(threshold) / 100).formatted(.percent.precision(.fractionLength(0)).locale(.app))
+    }
+}
+
 private struct BudgetFormContent: View {
     @Bindable var model: BudgetFormModel
     let categories: [LedgerCategory]
@@ -45,6 +52,7 @@ private struct BudgetFormContent: View {
                     TextField("Name", text: $model.name)
                         .textInputAutocapitalization(.words)
                 }
+                .surfaceRows()
 
                 Section("Planned amount per period") {
                     AmountField(text: $model.amountText, currency: model.currency)
@@ -56,6 +64,7 @@ private struct BudgetFormContent: View {
                         }
                     }
                 }
+                .surfaceRows()
 
                 periodSection
                 categorySection
@@ -67,6 +76,16 @@ private struct BudgetFormContent: View {
                     } footer: {
                         Text("Money left at the end of a period is added to the next one; overspending is taken from it.")
                     }
+                    .surfaceRows()
+                }
+
+                alertSection
+            }
+            .appGroupedStyle()
+            .keyboardDismissal()
+            .safeAreaInset(edge: .bottom) {
+                PrimaryActionBar(title: model.isEditing ? "Save Changes" : "Save Budget", isEnabled: model.canSave) {
+                    if model.save(categories: categories, wallets: wallets) { dismiss() }
                 }
             }
             .navigationTitle(model.isEditing ? "Edit Budget" : "New Budget")
@@ -74,12 +93,6 @@ private struct BudgetFormContent: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if model.save(categories: categories, wallets: wallets) { dismiss() }
-                    }
-                    .disabled(!model.canSave)
                 }
             }
             .errorAlert(Binding(
@@ -110,23 +123,56 @@ private struct BudgetFormContent: View {
         } footer: {
             Text("Weeks start on Monday; months and years follow the calendar. The first period begins on the start date.")
         }
+        .surfaceRows()
+    }
+
+    /// Off, or any of 50/80/90/100 % of the available amount.
+    private var alertSection: some View {
+        Section {
+            ForEach(BudgetAlertRules.allowedThresholds, id: \.self) { threshold in
+                let isSelected = model.alertThresholds.contains(threshold)
+                Button {
+                    model.toggleAlert(threshold)
+                } label: {
+                    HStack {
+                        Text(BudgetAlertLevel.text(threshold))
+                            .foregroundStyle(AppColor.textPrimary)
+                        Spacer()
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(isSelected ? AppColor.accent : AppColor.textSecondary)
+                    }
+                }
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        } header: {
+            Text("Alerts")
+        } footer: {
+            Text(model.alertThresholds.isEmpty
+                 ? "No alerts for this budget."
+                 : "You get a notification when spending reaches each selected share of the budget, once per period. Budget alerts must also be on in Notifications.")
+        }
+        .surfaceRows()
     }
 
     private var categorySection: some View {
         Section {
-            ForEach(model.selectableCategories(from: categories)) { category in
+            ForEach(model.selectableCategories(from: categories).inHierarchy(), id: \.category.id) { item in
+                let category = item.category
                 let isSelected = model.selectedCategoryIDs.contains(category.id)
                 Button {
                     model.toggleCategory(category)
                 } label: {
                     HStack(spacing: Spacing.md) {
                         IconBadge(systemName: category.iconName,
-                                  tint: PaletteColor(identifier: category.colorIdentifier).color)
-                        Text(category.name)
-                            .foregroundStyle(Color.primary)
+                                  tint: PaletteColor(identifier: category.colorIdentifier).color,
+                                  size: item.level > 0 ? .small : .regular)
+                            .padding(.leading, CGFloat(item.level) * 28)
+                        Text(verbatim: category.name)
+                            .foregroundStyle(AppColor.textPrimary)
                         Spacer()
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                            .font(.selectionCircle)
+                            .foregroundStyle(isSelected ? AppColor.accent : AppColor.textSecondary)
                     }
                 }
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -136,6 +182,7 @@ private struct BudgetFormContent: View {
         } footer: {
             Text("Expenses in these categories, and their sub-categories, count towards the budget. Income and transfers never do.")
         }
+        .surfaceRows()
     }
 
     private var walletSection: some View {
@@ -147,7 +194,7 @@ private struct BudgetFormContent: View {
                     Text(CurrencyCatalog.offersChoice(including: model.currency)
                          ? "No wallets use \(model.currency.code)."
                          : "No active wallets.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColor.textSecondary)
                 }
                 ForEach(selectable) { wallet in
                     let isSelected = model.selectedWalletIDs.contains(wallet.id)
@@ -155,10 +202,10 @@ private struct BudgetFormContent: View {
                         model.toggleWallet(wallet)
                     } label: {
                         HStack {
-                            Text(wallet.name).foregroundStyle(Color.primary)
+                            Text(wallet.name).foregroundStyle(AppColor.textPrimary)
                             Spacer()
                             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                                .foregroundStyle(isSelected ? AppColor.accent : AppColor.textSecondary)
                         }
                     }
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -167,12 +214,19 @@ private struct BudgetFormContent: View {
         } header: {
             Text("Wallets")
         } footer: {
-            if CurrencyCatalog.offersChoice(including: model.currency) {
-                Text("Only expenses in \(model.currency.code) count. Spending in other currencies is shown separately, never converted.")
-            } else {
-                Text("Leave off to count expenses from every wallet.")
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                if CurrencyCatalog.offersChoice(including: model.currency) {
+                    Text("Only expenses in \(model.currency.code) count. Spending in other currencies is shown separately, never converted.")
+                } else {
+                    Text("Leave off to count expenses from every wallet.")
+                }
+                let archived = model.limitsWallets ? model.archivedSelectedWallets(from: wallets) : []
+                if !archived.isEmpty {
+                    Text("Also counts past spending in \(archived.map(\.name).formatted(.list(type: .and).locale(.app))) (archived).")
+                }
             }
         }
+        .surfaceRows()
     }
 }
 

@@ -19,14 +19,15 @@ struct BudgetListView: View {
         NavigationStack(path: app.router.binding(for: .budgets)) {
             Group {
                 if budgets.isEmpty && archivedBudgets.isEmpty {
-                    ContentUnavailableView {
-                        Label("No budgets yet", systemImage: "chart.pie")
-                    } description: {
-                        Text("A budget plans your spending for one or more categories over a week, a month, a year or custom dates, and shows how much is left.")
-                    } actions: {
-                        Button("Create Budget") { showingNewBudget = true }
-                            .buttonStyle(.borderedProminent)
+                    EmptyStateView(
+                        systemImage: "chart.pie",
+                        title: "No budgets yet",
+                        message: "A budget plans your spending for one or more categories over a week, a month, a year or custom dates, and shows how much is left."
+                    ) {
+                        Button("Add Budget", systemImage: "plus") { showingNewBudget = true }
+                            .buttonStyle(.appPrimary)
                     }
+                    .frame(maxHeight: .infinity)
                 } else {
                     List {
                         if !budgets.isEmpty {
@@ -39,6 +40,7 @@ struct BudgetListView: View {
                             } footer: {
                                 Text("Each budget measures its own categories. If two budgets share a category, both count that spending.")
                             }
+                            .surfaceRows()
                         }
                         if !archivedBudgets.isEmpty {
                             Section("Archived") {
@@ -48,10 +50,13 @@ struct BudgetListView: View {
                                     }
                                 }
                             }
+                            .surfaceRows()
                         }
                     }
+                    .appGroupedStyle()
                 }
             }
+            .screenBackground()
             .navigationTitle("Budgets")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -81,27 +86,26 @@ struct BudgetRow: View {
             switch Result(catching: { try app.budgets.progress(for: budget, at: .now) }) {
             case .success(let progress):
                 HStack {
-                    Text(budget.name).font(.headline)
+                    Text(budget.name)
+                        .font(.cardTitle)
+                        .foregroundStyle(AppColor.textPrimary)
                     Spacer()
                     BudgetStatusLabel(status: progress.status)
                 }
                 BudgetProgressBar(progress: progress)
                 HStack {
                     Text("Spent \(MoneyFormatter().string(from: progress.spent)) of \(MoneyFormatter().string(from: progress.available))")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.meta)
+                        .foregroundStyle(AppColor.textSecondary)
                     Spacer()
                     MoneyText(money: progress.remaining, tone: .balance, font: .amountDetail)
                 }
                 Text("\(budget.period?.displayName ?? "") · \(BudgetWindowLabel.text(for: progress.window, calendar: app.calendarPolicy))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.fine)
+                    .foregroundStyle(AppColor.textSecondary)
             case .failure(let error):
-                Text(budget.name).font(.headline)
-                Label((error as? LocalizedError)?.errorDescription ?? String(localized: "Progress unavailable"),
-                      systemImage: "exclamationmark.triangle")
-                    .font(.footnote)
-                    .foregroundStyle(AppColor.expense)
+                Text(budget.name).font(.cardTitle)
+                ReadFailureLabel("Progress unavailable", error: error)
             }
         }
         .padding(.vertical, Spacing.xs)
@@ -114,7 +118,7 @@ struct BudgetStatusLabel: View {
 
     var body: some View {
         Label(status.displayName, systemImage: status.systemImage)
-            .font(.caption.weight(.semibold))
+            .font(.fine.weight(.semibold))
             .foregroundStyle(status.color)
     }
 }
@@ -124,9 +128,11 @@ struct BudgetProgressBar: View {
     let progress: BudgetProgress
 
     var body: some View {
-        ProgressView(value: fraction)
-            .tint(progress.status.color)
-            .accessibilityValue(Text(percentText))
+        MeterBar(fraction: fraction, tint: progress.status.color)
+            .accessibilityRepresentation {
+                ProgressView(value: fraction)
+                    .accessibilityValue(Text(percentText))
+            }
     }
 
     private var fraction: Double {
@@ -138,7 +144,7 @@ struct BudgetProgressBar: View {
 
     private var percentText: String {
         guard let utilization = progress.utilization else { return "" }
-        return utilization.formatted(.percent.precision(.fractionLength(0...1)))
+        return utilization.formatted(.percent.precision(.fractionLength(0...1)).locale(.app))
     }
 }
 
@@ -146,8 +152,8 @@ enum BudgetWindowLabel {
     /// "1 Oct – 31 Oct 2026": the window's first and last (inclusive) day.
     static func text(for window: BudgetWindow, calendar: CalendarPolicy) -> String {
         let lastDay = calendar.calendar.date(byAdding: .day, value: -1, to: window.range.end) ?? window.range.end
-        let start = window.range.start.formatted(.dateTime.day().month(.abbreviated))
-        let end = lastDay.formatted(.dateTime.day().month(.abbreviated).year())
+        let start = window.range.start.formatted(.dateTime.day().month(.abbreviated).locale(.app))
+        let end = lastDay.formatted(.dateTime.day().month(.abbreviated).year().locale(.app))
         return "\(start) – \(end)"
     }
 }

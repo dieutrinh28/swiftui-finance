@@ -11,7 +11,7 @@ import FinanceDomain
 public struct ExportService {
     public static let transactionColumns = [
         "Date", "Type", "Wallet", "Category", "Amount", "Currency",
-        "To wallet", "Amount received", "Received currency", "Note", "Merchant", "ID",
+        "To wallet", "Amount received", "Received currency", "Note", "Merchant", "ID", "Irregular",
     ]
 
     private let context: ModelContext
@@ -65,6 +65,7 @@ public struct ExportService {
                 .text(transaction.note ?? ""),
                 .text(transaction.merchant ?? ""),
                 .value(transaction.id.uuidString),
+                .value(transaction.isIrregular ? "Yes" : ""),
             ])
         }
         return table

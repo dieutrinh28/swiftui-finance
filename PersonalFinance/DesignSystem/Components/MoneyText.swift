@@ -12,7 +12,7 @@ enum AmountTone {
     case expense
     /// Movement between own wallets: no sign, transfer colour.
     case transfer
-    /// A balance that may be negative (debt): own sign, liability colour when negative.
+    /// A balance that may be negative (debt): own sign, negative colour when below zero.
     case balance
     /// A transfer seen from the wallet it leaves: "−", transfer colour.
     case transferOut
@@ -46,11 +46,12 @@ struct MoneyText: View {
 
     private var color: Color {
         switch tone {
-        case .neutral: .primary
+        case .neutral: AppColor.textPrimary
         case .income: AppColor.income
         case .expense: AppColor.expense
         case .transfer, .transferIn, .transferOut: AppColor.transfer
-        case .balance: money.isNegative ? AppColor.liability : .primary
+        // Debt and overdrafts: minus sign plus the negative colour, never shown as available money.
+        case .balance: money.isNegative ? AppColor.negative : AppColor.textPrimary
         }
     }
 

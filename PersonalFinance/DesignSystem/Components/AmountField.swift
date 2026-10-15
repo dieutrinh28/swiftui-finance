@@ -1,8 +1,9 @@
 import SwiftUI
 import FinanceDomain
 
-/// Large amount entry with the currency code beside it and live feedback:
-/// the parsed value formatted for the locale, or why the input is invalid.
+/// Large amount entry with the currency beside it and live feedback below:
+/// the parsed value formatted for the locale (with its sign and colour), or
+/// why the input is invalid (with an icon, not colour alone).
 struct AmountField: View {
     @Binding var text: String
     let currency: CurrencyDefinition
@@ -14,14 +15,17 @@ struct AmountField: View {
                 TextField("0", text: $text)
                     .keyboardType(currency.minorUnitDigits == 0 ? .numberPad : .decimalPad)
                     .font(.amountHero)
+                    .foregroundStyle(AppColor.textPrimary)
+                    .minimumScaleFactor(0.6)
                     .accessibilityLabel(Text("Amount in \(currency.code)"))
                 Text(currency.code)
                     .font(.headline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColor.textSecondary)
             }
             feedback
-                .font(.footnote)
+                .font(.meta)
         }
+        .padding(.vertical, Spacing.xs)
     }
 
     @ViewBuilder
@@ -31,10 +35,10 @@ struct AmountField: View {
         } else {
             switch Result(catching: { try AmountInputParser().parse(text, currency: currency) }) {
             case .success(let money):
-                MoneyText(money: money, tone: tone, font: .footnote)
+                MoneyText(money: money, tone: tone, font: .meta.weight(.semibold))
             case .failure(let error):
-                Text((error as? LocalizedError)?.errorDescription ?? "")
-                    .foregroundStyle(AppColor.expense)
+                Label((error as? LocalizedError)?.errorDescription ?? "", systemImage: "exclamationmark.circle")
+                    .foregroundStyle(AppColor.negative)
             }
         }
     }
@@ -42,7 +46,10 @@ struct AmountField: View {
 
 #Preview {
     @Previewable @State var text = "65.000"
+    @Previewable @State var invalid = "65,5"
     Form {
         AmountField(text: $text, currency: .vnd, tone: .expense)
+        AmountField(text: $invalid, currency: .vnd)
     }
+    .appGroupedStyle()
 }

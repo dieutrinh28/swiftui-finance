@@ -256,7 +256,8 @@ public struct ImportService {
                     transaction = try transactions.insertCashFlow(CashFlowDraft(
                         kind: row.kind, amount: row.amount, wallet: source,
                         category: try category(path, type: type),
-                        date: row.date, note: row.note, merchant: row.merchant
+                        date: row.date, note: row.note, merchant: row.merchant,
+                        isIrregular: row.isIrregular
                     ))
                 }
                 if let id = row.id { transaction.id = id }
@@ -307,14 +308,36 @@ public struct ImportService {
         /// "Food / Coffee" matches the child Coffee under Food; "Coffee" prefers a top-level match.
         func category(path: String, type: CategoryType) -> LedgerCategory? {
             let (parentName, name) = Self.split(path)
-            let key = TransactionCSVParser.key(name)
-            let candidates = categories.filter { $0.type == type && TransactionCSVParser.key($0.name) == key }
+            let candidates = categories.filter { $0.type == type && Self.matches($0, name: name, type: type) }
             if let parentName {
-                let parentKey = TransactionCSVParser.key(parentName)
-                return candidates.first { $0.parent.map { TransactionCSVParser.key($0.name) == parentKey } ?? false }
+                return candidates.first { $0.parent.map { Self.matches($0, name: parentName, type: type) } ?? false }
             }
             return candidates.first { $0.parent == nil } ?? candidates.first
         }
+
+        /// Same name (ignoring case and accents), or the same built-in
+        /// category under its name in another language ("Food & Drinks" in
+        /// the file, "Ăn uống" in the app) as long as the user hasn't renamed it.
+        static func matches(_ category: LedgerCategory, name: String, type: CategoryType) -> Bool {
+            let key = TransactionCSVParser.key(name)
+            if TransactionCSVParser.key(category.name) == key { return true }
+            guard let seedKey = category.seedKey,
+                  builtInSeedKeys[type.rawValue + "|" + key] == seedKey,
+                  let builtIn = DefaultCategorySeeder.category(seedKey: seedKey)
+            else { return false }
+            return builtIn.allNames.contains(category.name)
+        }
+
+        /// "type|folded name" → seed key, for every built-in name in every language.
+        private static let builtInSeedKeys: [String: String] = {
+            var map: [String: String] = [:]
+            for item in DefaultCategorySeeder.all {
+                for name in item.allNames {
+                    map[item.type.rawValue + "|" + TransactionCSVParser.key(name)] = item.seedKey
+                }
+            }
+            return map
+        }()
 
         static func split(_ path: String) -> (parent: String?, name: String) {
             let parts = path.components(separatedBy: " / ")

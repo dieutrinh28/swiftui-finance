@@ -43,6 +43,8 @@ public final class BudgetFormModel {
     public var limitsWallets = false
     public var selectedWalletIDs: Set<UUID> = []
     public var rolloverEnabled = false
+    /// Alert percentages; empty means no alerts for this budget.
+    public var alertThresholds: Set<Int> = Set(BudgetAlertRules.defaultThresholds)
 
     // MARK: Output
 
@@ -85,6 +87,7 @@ public final class BudgetFormModel {
             selectedWalletIDs = Set(budget.walletIDs)
             limitsWallets = !budget.walletIDs.isEmpty
             rolloverEnabled = budget.rolloverEnabled
+            alertThresholds = Set(budget.alertThresholdPercents)
         }
     }
 
@@ -126,12 +129,24 @@ public final class BudgetFormModel {
         all.filter { $0.type == .expense && (!$0.isArchived || selectedCategoryIDs.contains($0.id)) }
     }
 
-    /// Active wallets in the budget's currency, plus any already selected.
+    /// Active wallets in the budget's currency (`WalletChoices`).
     public func selectableWallets(from all: [Wallet]) -> [Wallet] {
-        all.filter { $0.currencyCode == currency.code && (!$0.isArchived || selectedWalletIDs.contains($0.id)) }
+        WalletChoices.selectable(from: all, currencyCode: currency.code)
+    }
+
+    /// Archived wallets this budget already counts. Not listed (and can't be
+    /// added again), but kept, so the budget's past periods don't change.
+    public func archivedSelectedWallets(from all: [Wallet]) -> [Wallet] {
+        all.filter { $0.isArchived && selectedWalletIDs.contains($0.id) }
     }
 
     // MARK: Actions
+
+    public func toggleAlert(_ threshold: Int) {
+        if !alertThresholds.insert(threshold).inserted {
+            alertThresholds.remove(threshold)
+        }
+    }
 
     public func toggleCategory(_ category: LedgerCategory) {
         if !selectedCategoryIDs.insert(category.id).inserted {
@@ -161,7 +176,8 @@ public final class BudgetFormModel {
                 endDate: effectiveEndDate,
                 categories: categories.filter { selectedCategoryIDs.contains($0.id) },
                 wallets: limitsWallets ? wallets.filter { selectedWalletIDs.contains($0.id) } : [],
-                rolloverEnabled: supportsRollover && rolloverEnabled
+                rolloverEnabled: supportsRollover && rolloverEnabled,
+                alertThresholds: alertThresholds.sorted()
             )
             switch mode {
             case .create: try service.create(draft)

@@ -28,6 +28,7 @@ struct TransactionFilterView: View {
                         PeriodPicker(selection: $period)
                     }
                 }
+                .surfaceRows()
 
                 Section("Type") {
                     ForEach(TransactionKind.allCases, id: \.self) { kind in
@@ -36,23 +37,38 @@ struct TransactionFilterView: View {
                         }
                     }
                 }
+                .surfaceRows()
 
                 Section("Wallets") {
-                    ForEach(wallets) { wallet in
-                        CheckRow(title: wallet.isArchived ? "\(wallet.name) (archived)" : wallet.name,
+                    ForEach(WalletChoices.selectable(from: wallets)) { wallet in
+                        CheckRow(title: wallet.name,
                                  isOn: model.query.walletIDs.contains(wallet.id)) {
                             toggle(wallet.id, in: \.walletIDs)
                         }
                     }
                 }
+                .surfaceRows()
 
-                Section("Categories") {
-                    ForEach(categories) { category in
-                        CheckRow(title: category.name,
-                                 systemImage: category.iconName,
-                                 isOn: model.query.categoryIDs.contains(category.id)) {
-                            toggle(category.id, in: \.categoryIDs)
+                ForEach([CategoryType.expense, .income], id: \.self) { type in
+                    let matching = categories.filter { $0.type == type }.inHierarchy()
+                    if !matching.isEmpty {
+                        Section {
+                            ForEach(matching, id: \.category.id) { item in
+                                CheckRow(title: item.category.name,
+                                         systemImage: item.category.iconName,
+                                         level: item.level,
+                                         isOn: model.query.categoryIDs.contains(item.category.id)) {
+                                    toggle(item.category.id, in: \.categoryIDs)
+                                }
+                            }
+                        } header: {
+                            Text(type == .expense ? "Expense categories" : "Income categories")
+                        } footer: {
+                            if type == .expense {
+                                Text("Choosing a category also shows its sub-categories.")
+                            }
                         }
+                        .surfaceRows()
                     }
                 }
 
@@ -68,7 +84,10 @@ struct TransactionFilterView: View {
                         Text("Compared in each transaction's own currency.")
                     }
                 }
+                .surfaceRows()
             }
+            .appGroupedStyle()
+            .keyboardDismissal()
             .navigationTitle("Filters")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -81,6 +100,7 @@ struct TransactionFilterView: View {
                     }
                     .disabled(model.query.activeFilterCount == 0)
                 }
+                // convention-ok: C4 filters apply immediately; Done only closes the sheet
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
@@ -96,6 +116,8 @@ struct TransactionFilterView: View {
     private func load() {
         guard !didLoad else { return }
         didLoad = true
+        // A wallet archived since it was chosen is no longer listed, so it can't stay an invisible filter.
+        model.query.walletIDs.subtract(wallets.filter(\.isArchived).map(\.id))
         if let current = model.period {
             limitsPeriod = true
             period = current
@@ -132,8 +154,12 @@ struct TransactionFilterView: View {
 private struct CheckRow: View {
     let title: String
     var systemImage: String?
+    /// 1 for a sub-category, indented under its parent.
+    var level = 0
     let isOn: Bool
     let action: () -> Void
+
+    @ScaledMetric(relativeTo: .body) private var indent = 28
 
     var body: some View {
         Button(action: action) {
@@ -146,10 +172,12 @@ private struct CheckRow: View {
                 Spacer()
                 if isOn {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(Color.accentColor)
+                        .font(.checkmark)
+                        .foregroundStyle(AppColor.accent)
                 }
             }
-            .foregroundStyle(Color.primary)
+            .foregroundStyle(AppColor.textPrimary)
+            .padding(.leading, CGFloat(level) * indent)
         }
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }

@@ -7,9 +7,14 @@ import Foundation
 /// The format is versioned separately from the database schema: a backup
 /// written by this app version can be read by later versions, and a backup
 /// from a newer app is refused instead of being half-imported.
+///
+/// Versions: 1 (Milestone 6); 2 (Milestone 8) adds irregular flags on
+/// categories and transactions and recurring transfers. Every field added in
+/// 2 is optional, so version 1 files still decode (missing = not irregular,
+/// not a transfer).
 public struct BackupDocument: Codable, Equatable, Sendable {
     public static let formatIdentifier = "com.ddtrinh.personalfinance.backup"
-    public static let currentFormatVersion = 1
+    public static let currentFormatVersion = 2
 
     public var format: String
     public var formatVersion: Int
@@ -82,14 +87,16 @@ public struct BackupDocument: Codable, Equatable, Sendable {
         public var createdAt: Date
         public var updatedAt: Date
         public var archivedAt: Date?
+        /// Format 2. nil (format 1) means false.
+        public var isIrregular: Bool?
 
         public init(id: UUID, name: String, type: String, iconName: String, colorIdentifier: String,
                     seedKey: String?, parentID: UUID?, sortOrder: Int,
-                    createdAt: Date, updatedAt: Date, archivedAt: Date?) {
+                    createdAt: Date, updatedAt: Date, archivedAt: Date?, isIrregular: Bool? = nil) {
             self.id = id; self.name = name; self.type = type; self.iconName = iconName
             self.colorIdentifier = colorIdentifier; self.seedKey = seedKey; self.parentID = parentID
             self.sortOrder = sortOrder; self.createdAt = createdAt; self.updatedAt = updatedAt
-            self.archivedAt = archivedAt
+            self.archivedAt = archivedAt; self.isIrregular = isIrregular
         }
     }
 
@@ -119,14 +126,17 @@ public struct BackupDocument: Codable, Equatable, Sendable {
         public var createdAt: Date
         public var updatedAt: Date
         public var entries: [EntryRecord]
+        /// Format 2. nil (format 1) means false.
+        public var isIrregular: Bool?
 
         public init(id: UUID, kind: String, date: Date, dayKey: Int, categoryID: UUID?, note: String?,
                     merchant: String?, exchangeRateText: String?, recurringOccurrenceKey: String?,
-                    createdAt: Date, updatedAt: Date, entries: [EntryRecord]) {
+                    createdAt: Date, updatedAt: Date, entries: [EntryRecord], isIrregular: Bool? = nil) {
             self.id = id; self.kind = kind; self.date = date; self.dayKey = dayKey
             self.categoryID = categoryID; self.note = note; self.merchant = merchant
             self.exchangeRateText = exchangeRateText; self.recurringOccurrenceKey = recurringOccurrenceKey
             self.createdAt = createdAt; self.updatedAt = updatedAt; self.entries = entries
+            self.isIrregular = isIrregular
         }
     }
 
@@ -210,7 +220,12 @@ public struct BackupDocument: Codable, Equatable, Sendable {
         public var amountMinorUnits: Int64
         public var currencyCode: String
         public var walletID: UUID
-        public var categoryID: UUID
+        /// Income and expenses; nil for transfers (format 2).
+        public var categoryID: UUID?
+        /// Transfers only (format 2).
+        public var destinationWalletID: UUID?
+        /// Cross-currency transfers only (format 2).
+        public var receivedAmountMinorUnits: Int64?
         public var frequency: String
         public var interval: Int
         public var startDate: Date
@@ -225,11 +240,13 @@ public struct BackupDocument: Codable, Equatable, Sendable {
         public var updatedAt: Date
 
         public init(id: UUID, name: String, kind: String, amountMinorUnits: Int64, currencyCode: String,
-                    walletID: UUID, categoryID: UUID, frequency: String, interval: Int, startDate: Date,
+                    walletID: UUID, categoryID: UUID?, frequency: String, interval: Int, startDate: Date,
                     endDate: Date?, note: String?, reminderEnabled: Bool, reminderMinutes: Int, pausedAt: Date?,
-                    handledOccurrenceKeys: [String], sortOrder: Int, createdAt: Date, updatedAt: Date) {
+                    handledOccurrenceKeys: [String], sortOrder: Int, createdAt: Date, updatedAt: Date,
+                    destinationWalletID: UUID? = nil, receivedAmountMinorUnits: Int64? = nil) {
             self.id = id; self.name = name; self.kind = kind; self.amountMinorUnits = amountMinorUnits
             self.currencyCode = currencyCode; self.walletID = walletID; self.categoryID = categoryID
+            self.destinationWalletID = destinationWalletID; self.receivedAmountMinorUnits = receivedAmountMinorUnits
             self.frequency = frequency; self.interval = interval; self.startDate = startDate
             self.endDate = endDate; self.note = note; self.reminderEnabled = reminderEnabled
             self.reminderMinutes = reminderMinutes; self.pausedAt = pausedAt
@@ -270,21 +287,21 @@ extension BackupError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .unreadable:
-            "This file can't be read as a backup. It may be damaged."
+            String(localized: "This file can't be read as a backup. It may be damaged.", bundle: .l10n)
         case .notABackup:
-            "This file is not a Personal Finance backup."
+            String(localized: "This file is not a Personal Finance backup.", bundle: .l10n)
         case .newerFormat:
-            "This backup was made by a newer version of the app. Update the app, then try again."
+            String(localized: "This backup was made by a newer version of the app. Update the app, then try again.", bundle: .l10n)
         case .duplicateID(let entity):
-            "The backup is inconsistent: two \(entity) records share an identifier."
+            String(localized: "The backup is inconsistent: two \(entity) records share an identifier.", bundle: .l10n)
         case .invalidValue(let field, let value):
-            "The backup contains an invalid value for \(field): \(value)."
+            String(localized: "The backup contains an invalid value for \(field): \(value).", bundle: .l10n)
         case .missingReference(let entity, _):
-            "The backup is incomplete: a \(entity) it refers to is missing."
+            String(localized: "The backup is incomplete: a \(entity) it refers to is missing.", bundle: .l10n)
         case .invalidTransaction:
-            "The backup contains a transaction whose amounts don't add up."
+            String(localized: "The backup contains a transaction whose amounts don't add up.", bundle: .l10n)
         case .categoryCycle:
-            "The backup contains categories that are their own parent."
+            String(localized: "The backup contains categories that are their own parent.", bundle: .l10n)
         }
     }
 }

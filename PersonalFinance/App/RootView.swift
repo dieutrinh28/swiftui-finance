@@ -27,8 +27,13 @@ struct RootView: View {
         // A tapped notification (also one that launched the app) is resolved once the UI is up.
         .onChange(of: app.router.pendingRoute, initial: true) {
             let budgets = app.budgets
-            app.router.resolvePending { try? budgets.budget(id: $0) }
+            app.router.resolvePending { try budgets.budget(id: $0) }
         }
+        // A notification whose budget couldn't be read lands on Budgets and says so.
+        .errorAlert(Binding(
+            get: { app.router.routeFailure.map { AlertError($0, title: String(localized: "Couldn't Open Budget", bundle: .l10n)) } },
+            set: { if $0 == nil { app.router.clearRouteFailure() } }
+        ))
         // Reminders and budget alerts follow every saved change and every return to the app.
         .task(id: app.dataVersion) {
             await app.refreshNotifications()

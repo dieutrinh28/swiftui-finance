@@ -10,9 +10,9 @@ extension PersistenceError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .storeUnavailable:
-            "The local database could not be opened."
+            String(localized: "The local database could not be opened.", bundle: .l10n)
         case .saveFailed:
-            "Your changes could not be saved. Nothing was changed."
+            String(localized: "Your changes could not be saved. Nothing was changed.", bundle: .l10n)
         }
     }
 }
@@ -45,10 +45,10 @@ public enum StoreLocation: Sendable, Equatable {
 
 public enum ModelContainerFactory {
     /// Human-readable version of the schema the app writes.
-    public static let currentSchemaVersion = "3.0.0"
+    public static let currentSchemaVersion = "4.0.0"
 
     public static var schema: Schema {
-        Schema(versionedSchema: SchemaV3.self)
+        Schema(versionedSchema: SchemaV4.self)
     }
 
     /// Opens (or creates) the store. Never deletes or resets an existing store:

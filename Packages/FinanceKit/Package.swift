@@ -14,7 +14,9 @@ var products: [Product] = [
 ]
 
 var targets: [Target] = [
-    .target(name: "FinanceDomain"),
+    // User-facing messages (errors, import problems) are looked up with
+    // `String(localized:bundle: .module)` in each target's String Catalog.
+    .target(name: "FinanceDomain", resources: [.process("Resources")]),
     .testTarget(name: "FinanceDomainTests", dependencies: ["FinanceDomain"]),
 ]
 
@@ -24,8 +26,12 @@ products += [
     .library(name: "FinanceFeatures", targets: ["FinanceFeatures"]),
 ]
 targets += [
-    .target(name: "FinancePersistence", dependencies: ["FinanceDomain"]),
-    .target(name: "FinanceFeatures", dependencies: ["FinancePersistence", "FinanceDomain"]),
+    .target(name: "FinancePersistence", dependencies: ["FinanceDomain"], resources: [.process("Resources")]),
+    .target(
+        name: "FinanceFeatures",
+        dependencies: ["FinancePersistence", "FinanceDomain"],
+        resources: [.process("Resources")]
+    ),
     .testTarget(
         name: "FinancePersistenceTests",
         dependencies: ["FinancePersistence", "FinanceDomain"]
@@ -39,6 +45,7 @@ targets += [
 
 let package = Package(
     name: "FinanceKit",
+    defaultLocalization: "en",
     platforms: [.iOS(.v18), .macOS(.v15)],
     products: products,
     targets: targets

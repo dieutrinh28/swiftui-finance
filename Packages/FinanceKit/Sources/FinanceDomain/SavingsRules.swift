@@ -90,6 +90,17 @@ public enum SavingsRules {
 
 /// Budget alert rules.
 public enum BudgetAlertRules {
+    /// Thresholds a budget can alert at. An empty selection turns alerts off.
+    public static let allowedThresholds: [Int] = [50, 80, 90, 100]
+    public static let defaultThresholds: [Int] = [80, 100]
+
+    /// Sorted, without duplicates; throws for a value outside `allowedThresholds`.
+    public static func normalizedThresholds(_ thresholds: [Int]) throws -> [Int] {
+        let unique = Set(thresholds)
+        guard unique.isSubset(of: allowedThresholds) else { throw LedgerValidationError.invalidAlertThresholds }
+        return unique.sorted()
+    }
+
     /// Thresholds (percent of the available amount) reached by `progress` that
     /// have not been alerted yet, lowest first. When nothing is available
     /// (zero or negative after rollover), any spending counts as 100 %.
@@ -112,6 +123,27 @@ public enum BudgetAlertRules {
 
     /// Identifies one alert so it is sent at most once per budget period.
     public static func alertKey(budgetID: UUID, window: BudgetWindow, threshold: Int) -> String {
-        "budget-\(budgetID.uuidString)-\(window.firstDay.rawValue)-\(threshold)"
+        alertKeyPrefix(budgetID: budgetID, window: window) + String(threshold)
+    }
+
+    /// The part of `alertKey` shared by every threshold of one budget period.
+    static func alertKeyPrefix(budgetID: UUID, window: BudgetWindow) -> String {
+        "budget-\(budgetID.uuidString)-\(window.firstDay.rawValue)-"
+    }
+
+    /// The remembered alert keys still needed: those of each budget's current
+    /// period, and every key of a budget whose period couldn't be worked out
+    /// (`unreadable`), so a read error never makes an alert repeat. Keys of past
+    /// periods and of deleted budgets are dropped, so the list stays small.
+    public static func keysToKeep(
+        _ sent: Set<String>,
+        currentWindows: [UUID: BudgetWindow],
+        unreadable: Set<UUID> = []
+    ) -> Set<String> {
+        let current = currentWindows.map { alertKeyPrefix(budgetID: $0.key, window: $0.value) }
+        let kept = unreadable.map { "budget-\($0.uuidString)-" }
+        return sent.filter { key in
+            current.contains { key.hasPrefix($0) } || kept.contains { key.hasPrefix($0) }
+        }
     }
 }

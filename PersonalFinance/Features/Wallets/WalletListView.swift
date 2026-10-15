@@ -19,30 +19,40 @@ struct WalletListView: View {
         NavigationStack(path: app.router.binding(for: .wallets)) {
             Group {
                 if wallets.isEmpty && archivedWallets.isEmpty {
-                    ContentUnavailableView {
-                        Label("No wallets yet", systemImage: "wallet.pass")
-                    } description: {
-                        Text("Wallets hold your cash, bank accounts, e-wallets and cards. You can add as many as you need.")
-                    } actions: {
-                        Button("Add Wallet") { showingNewWallet = true }
-                            .buttonStyle(.borderedProminent)
+                    EmptyStateView(
+                        systemImage: "wallet.pass",
+                        title: "No wallets yet",
+                        message: "Wallets hold your cash, bank accounts, e-wallets and cards. You can add as many as you need."
+                    ) {
+                        Button("Add Wallet", systemImage: "plus") { showingNewWallet = true }
+                            .buttonStyle(.appPrimary)
                     }
+                    .frame(maxHeight: .infinity)
                 } else {
                     List {
-                        section(for: .asset, title: "Assets")
-                        section(for: .liability, title: "Liabilities")
+                        section(for: .asset, title: "Assets", systemImage: "banknote",
+                                footer: nil)
+                        section(for: .liability, title: "Liabilities", systemImage: "creditcard",
+                                footer: "A balance below zero is money you owe. It is never counted as available cash.")
                         if !archivedWallets.isEmpty {
-                            Section("Archived") {
+                            Section {
                                 ForEach(archivedWallets) { wallet in
                                     NavigationLink(value: wallet) {
                                         WalletRow(wallet: wallet)
                                     }
                                 }
+                            } header: {
+                                Label("Archived", systemImage: "archivebox")
+                            } footer: {
+                                Text("Archived wallets keep their history and still count in net worth while they hold money.")
                             }
+                            .surfaceRows()
                         }
                     }
+                    .appGroupedStyle()
                 }
             }
+            .screenBackground()
             .navigationTitle("Wallets")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -61,16 +71,28 @@ struct WalletListView: View {
     }
 
     @ViewBuilder
-    private func section(for accountClass: AccountClass, title: LocalizedStringKey) -> some View {
+    private func section(
+        for accountClass: AccountClass,
+        title: LocalizedStringKey,
+        systemImage: String,
+        footer: LocalizedStringKey?
+    ) -> some View {
         let matching = wallets.filter { $0.type.accountClass == accountClass }
         if !matching.isEmpty {
-            Section(title) {
+            Section {
                 ForEach(matching) { wallet in
                     NavigationLink(value: wallet) {
                         WalletRow(wallet: wallet)
                     }
                 }
+            } header: {
+                Label(title, systemImage: systemImage)
+            } footer: {
+                if let footer {
+                    Text(footer)
+                }
             }
+            .surfaceRows()
         }
     }
 }
@@ -84,13 +106,17 @@ struct WalletRow: View {
             IconBadge(systemName: wallet.iconName, tint: PaletteColor(identifier: wallet.colorIdentifier).color)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(wallet.name)
-                    .font(.body.weight(.medium))
+                    .font(.rowTitle)
+                    .foregroundStyle(AppColor.textPrimary)
+                    .lineLimit(1)
                 Text(wallet.typeWithCurrency)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.meta)
+                    .foregroundStyle(AppColor.textSecondary)
             }
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
             Spacer(minLength: Spacing.sm)
             WalletBalanceText(wallet: wallet)
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
     }
@@ -106,9 +132,7 @@ struct WalletBalanceText: View {
         case .success(let balance):
             MoneyText(money: balance, tone: .balance, font: font)
         case .failure:
-            Label("Balance unavailable", systemImage: "exclamationmark.triangle")
-                .font(.footnote)
-                .foregroundStyle(AppColor.expense)
+            ReadFailureLabel("Balance unavailable")
         }
     }
 }

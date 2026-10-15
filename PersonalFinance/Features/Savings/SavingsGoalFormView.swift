@@ -9,7 +9,8 @@ struct SavingsGoalFormView: View {
     let goal: SavingsGoal?
 
     @Environment(AppContainer.self) private var app
-    @Query(filter: #Predicate<Wallet> { $0.archivedAt == nil }, sort: \Wallet.sortOrder)
+    /// Every wallet; the form offers only `WalletChoices.selectable` (archived ones never).
+    @Query(sort: \Wallet.sortOrder)
     private var wallets: [Wallet]
     @State private var model: SavingsGoalFormModel?
 
@@ -44,10 +45,17 @@ private struct SavingsGoalFormContent: View {
     var body: some View {
         NavigationStack {
             Form {
+                if model.loadFailure != nil {
+                    Section {
+                        ReadFailureLabel("The goal's wallet couldn't be read, so it can't be saved now.")
+                    }
+                    .surfaceRows()
+                }
                 Section {
                     TextField("Name, e.g. Emergency fund", text: $model.name)
                         .textInputAutocapitalization(.sentences)
                 }
+                .surfaceRows()
                 targetSection
                 Section {
                     Picker("Kept in", selection: $model.linkedWallet) {
@@ -57,27 +65,42 @@ private struct SavingsGoalFormContent: View {
                         }
                     }
                 } footer: {
-                    Text("Optional. Shows where the money is kept and warns if goals add up to more than that wallet holds. It never changes the wallet.")
+                    if let archived = model.archivedWalletName, model.linkedWallet == nil {
+                        Text("\(archived) is archived, so it is no longer offered. Saving removes it from this goal unless you choose another wallet.")
+                    } else {
+                        Text("Optional. Shows where the money is kept and warns if goals add up to more than that wallet holds. It never changes the wallet.")
+                    }
                 }
+                .surfaceRows()
                 Section("Appearance") {
+                    HStack {
+                        Spacer()
+                        IconBadge(systemName: model.iconName,
+                                  tint: PaletteColor(identifier: model.colorIdentifier).color, size: .large)
+                            .padding(.vertical, Spacing.sm)
+                        Spacer()
+                    }
                     SymbolPicker(selection: $model.iconName, symbols: Self.symbols,
                                  tint: PaletteColor(identifier: model.colorIdentifier).color)
                     PalettePicker(selection: $model.colorIdentifier)
                 }
+                .surfaceRows()
                 Section("Note") {
                     TextField("Optional", text: $model.note, axis: .vertical)
+                }
+                .surfaceRows()
+            }
+            .appGroupedStyle()
+            .keyboardDismissal()
+            .safeAreaInset(edge: .bottom) {
+                PrimaryActionBar(title: model.isEditing ? "Save Changes" : "Save Goal", isEnabled: model.canSave) {
+                    if model.save() { dismiss() }
                 }
             }
             .navigationTitle(model.isEditing ? "Edit Goal" : "New Goal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if model.save() { dismiss() }
-                    }
-                    .disabled(!model.canSave)
-                }
             }
             .errorAlert(Binding(
                 get: { model.failure.map { AlertError($0) } },
@@ -118,73 +141,77 @@ private struct SavingsGoalFormContent: View {
                 }
             }
         }
+        .surfaceRows()
     }
 }
 
-/// Add money to a goal, or take some out.
+/// Add money to a goal, or take some out. Logic lives in `ContributionFormModel`.
 struct ContributionFormView: View {
     let goal: SavingsGoal
     let isWithdrawal: Bool
 
     @Environment(AppContainer.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @State private var model: ContributionFormModel?
 
-    @State private var amountText = ""
-    @State private var date = Date.now
-    @State private var note = ""
-    @State private var error: AlertError?
+    var body: some View {
+        Group {
+            if let model {
+                ContributionFormContent(model: model)
+            } else {
+                ProgressView()
+            }
+        }
+        .onAppear {
+            guard model == nil else { return }
+            model = ContributionFormModel(goal: goal, isWithdrawal: isWithdrawal, service: app.savings)
+        }
+    }
+}
+
+private struct ContributionFormContent: View {
+    @Bindable var model: ContributionFormModel
+
+    @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: Bool
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    if let currency = goal.currency {
-                        AmountField(text: $amountText, currency: currency, tone: isWithdrawal ? .transferOut : .transferIn)
+                    if let currency = model.currency {
+                        AmountField(text: $model.amountText, currency: currency,
+                                    tone: model.isWithdrawal ? .transferOut : .transferIn)
                             .focused($focused)
                     }
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
-                    TextField("Note", text: $note)
+                    DatePicker("Date", selection: $model.date, displayedComponents: .date)
+                    TextField("Note", text: $model.note)
                 } footer: {
-                    Text(isWithdrawal
+                    Text(model.isWithdrawal
                          ? "Lowers the amount set aside for this goal. No wallet balance changes."
                          : "Raises the amount set aside for this goal. No wallet balance changes.")
                 }
+                .surfaceRows()
             }
-            .navigationTitle(isWithdrawal ? "Take Money Out" : "Add Money")
+            .appGroupedStyle()
+            .keyboardDismissal()
+            .safeAreaInset(edge: .bottom) {
+                PrimaryActionBar(title: model.isWithdrawal ? "Take Money Out" : "Add Money",
+                                 systemImage: model.isWithdrawal ? "minus" : "plus",
+                                 isEnabled: model.canSave) {
+                    if model.save() { dismiss() }
+                }
+            }
+            .navigationTitle(model.isWithdrawal ? "Take Money Out" : "Add Money")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save).disabled(!canSave)
-                }
             }
             .onAppear { focused = true }
-            .errorAlert($error)
+            .errorAlert(Binding(
+                get: { model.failure.map { AlertError($0) } },
+                set: { if $0 == nil { model.clearFailure() } }
+            ))
         }
         .presentationDetents([.medium, .large])
-    }
-
-    private var canSave: Bool {
-        guard let currency = goal.currency,
-              let amount = try? AmountInputParser().parse(amountText, currency: currency)
-        else { return false }
-        return amount.isPositive
-    }
-
-    private func save() {
-        guard let currency = goal.currency else { return }
-        do {
-            try app.savings.addEntry(
-                to: goal,
-                amount: try AmountInputParser().parse(amountText, currency: currency),
-                isWithdrawal: isWithdrawal,
-                date: date,
-                note: note
-            )
-            dismiss()
-        } catch {
-            self.error = AlertError(error)
-        }
     }
 }

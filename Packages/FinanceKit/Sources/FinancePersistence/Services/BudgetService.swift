@@ -15,6 +15,9 @@ public struct BudgetDraft {
     /// Wallets to measure; empty means every wallet.
     public var wallets: [Wallet]
     public var rolloverEnabled: Bool
+    /// Percent of the available amount to alert at; a subset of
+    /// `BudgetAlertRules.allowedThresholds`. Empty turns alerts off.
+    public var alertThresholds: [Int]
 
     public init(
         name: String,
@@ -24,7 +27,8 @@ public struct BudgetDraft {
         endDate: Date? = nil,
         categories: [LedgerCategory],
         wallets: [Wallet] = [],
-        rolloverEnabled: Bool = false
+        rolloverEnabled: Bool = false,
+        alertThresholds: [Int] = BudgetAlertRules.defaultThresholds
     ) {
         self.name = name
         self.plannedAmount = plannedAmount
@@ -34,6 +38,7 @@ public struct BudgetDraft {
         self.categories = categories
         self.wallets = wallets
         self.rolloverEnabled = rolloverEnabled
+        self.alertThresholds = alertThresholds
     }
 }
 
@@ -57,6 +62,8 @@ public struct BudgetService {
     @discardableResult
     public func create(_ draft: BudgetDraft) throws -> Budget {
         let name = try validate(draft)
+        // Archived wallets are never offered (I15).
+        guard !draft.wallets.contains(where: \.isArchived) else { throw LedgerValidationError.archivedWallet }
         let budget = Budget(
             name: name,
             planned: draft.plannedAmount,
@@ -66,6 +73,7 @@ public struct BudgetService {
             categoryIDs: uniqueIDs(draft.categories.map(\.id)),
             walletIDs: uniqueIDs(draft.wallets.map(\.id)),
             rolloverEnabled: draft.rolloverEnabled,
+            alertThresholdPercents: try BudgetAlertRules.normalizedThresholds(draft.alertThresholds),
             sortOrder: try nextSortOrder(),
             createdAt: now()
         )
@@ -76,6 +84,12 @@ public struct BudgetService {
 
     public func update(_ budget: Budget, with draft: BudgetDraft) throws {
         let name = try validate(draft)
+        // An archived wallet the budget already counts stays (its past periods
+        // keep their numbers); one can't be added (I15).
+        let kept = Set(budget.walletIDs)
+        guard !draft.wallets.contains(where: { $0.isArchived && !kept.contains($0.id) }) else {
+            throw LedgerValidationError.archivedWallet
+        }
         budget.name = name
         budget.plannedAmountMinorUnits = draft.plannedAmount.minorUnits
         budget.currencyCode = draft.plannedAmount.currency.code
@@ -85,6 +99,7 @@ public struct BudgetService {
         budget.categoryIDs = uniqueIDs(draft.categories.map(\.id))
         budget.walletIDs = uniqueIDs(draft.wallets.map(\.id))
         budget.rolloverEnabled = draft.rolloverEnabled
+        budget.alertThresholdPercents = try BudgetAlertRules.normalizedThresholds(draft.alertThresholds)
         budget.updatedAt = now()
         try context.saveOrRollback()
     }
@@ -194,13 +209,15 @@ public struct BudgetService {
                 parentCategoryID: transaction.category?.parent?.id,
                 walletID: transaction.primaryWallet?.id,
                 amount: amount,
-                day: transaction.day
+                day: transaction.day,
+                isIrregular: transaction.isIrregular
             )
         }
     }
 
     private func validate(_ draft: BudgetDraft) throws -> String {
         let name = try TextRules.normalizedName(draft.name)
+        _ = try BudgetAlertRules.normalizedThresholds(draft.alertThresholds)
         guard draft.plannedAmount.isPositive else { throw LedgerValidationError.nonPositiveAmount }
         guard !draft.categories.isEmpty else { throw LedgerValidationError.budgetNeedsCategories }
         for category in draft.categories {

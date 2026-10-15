@@ -85,7 +85,16 @@ public final class SavingsGoalFormModel {
             if let target = goal.target { targetText = parser.editingText(for: target) }
             hasTargetDate = goal.targetDate != nil
             if let date = goal.targetDate { targetDate = date }
-            selectedWallet = try? service.linkedWallet(of: goal)
+            do {
+                let linked = try service.linkedWallet(of: goal)
+                if let linked, linked.isArchived {
+                    archivedWalletName = linked.name        // not offered: the link goes when saved
+                } else {
+                    selectedWallet = linked
+                }
+            } catch {
+                loadFailure = error                         // saving would drop the link silently
+            }
             note = goal.note ?? ""
             iconName = goal.iconName
             colorIdentifier = goal.colorIdentifier
@@ -125,7 +134,8 @@ public final class SavingsGoalFormModel {
     }
 
     public var canSave: Bool {
-        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        guard loadFailure == nil,
+              !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               case .success(let target)? = parsedTarget, target.isPositive
         else { return false }
         return true
@@ -145,11 +155,17 @@ public final class SavingsGoalFormModel {
         )
     }
 
-    /// Wallets that can be linked: same currency, active (or already linked).
+    /// The archived wallet this goal was kept in, if any. It is not offered;
+    /// saving removes the link unless another wallet is chosen.
+    public private(set) var archivedWalletName: String?
+
+    /// The linked wallet couldn't be read when the form opened. Shown, and
+    /// saving is off, because saving would otherwise remove the link.
+    public private(set) var loadFailure: (any Error)?
+
+    /// Wallets that can be linked: active ones in the goal's currency (`WalletChoices`).
     public func availableWallets(from all: [Wallet]) -> [Wallet] {
-        all.filter {
-            $0.currencyCode == selectedCurrency.code && (!$0.isArchived || $0.id == selectedWallet?.id)
-        }
+        WalletChoices.selectable(from: all, currencyCode: selectedCurrency.code)
     }
 
     // MARK: Actions

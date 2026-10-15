@@ -36,7 +36,7 @@ The compiler enforces the boundaries: `FinanceDomain` cannot import SwiftData or
 | Need | Tool | Where |
 |---|---|---|
 | View-local state (sheets, dialogs, focus, the current error) | `@State`, `@FocusState` | every screen |
-| Screen logic worth testing (multi-field input, validation, save flow) | `@MainActor @Observable` model in **FinanceFeatures**, bound with `@Bindable` | `TransactionFormModel`, `BudgetFormModel`, `RecurringFormModel`, `SavingsGoalFormModel`, `AppRouter`, `DashboardModel`, `ReportsModel`, `TransactionListModel` |
+| Screen logic worth testing (multi-field input, validation, save flow) | `@MainActor @Observable` model in **FinanceFeatures**, bound with `@Bindable` | `TransactionFormModel`, `BudgetFormModel`, `RecurringFormModel`, `SavingsGoalFormModel`, `WalletFormModel`, `CategoryFormModel`, `ContributionFormModel`, `RecordOccurrenceFormModel`, `AppRouter`, `DashboardModel`, `ReportsModel`, `TransactionListModel` |
 | Refresh after any save | `AppContainer.dataVersion` (from `ModelContext.didSave`) + `.task(id:)` | dashboard, reports, due items, reminders |
 | Shared dependencies | `@Environment(AppContainer.self)` (services, calendar policy) and `.modelContainer` | composition root in `PersonalFinanceApp` |
 | Persistent lists | `@Query` (read-only) | list screens and pickers |
@@ -46,10 +46,9 @@ Which forms have a model, and why (reviewed after M5):
 
 | Form | State | Reason |
 |---|---|---|
-| Transaction, Budget, Recurring, Savings goal | `@Observable` model + tests | dependent fields (kind ↔ category, currency ↔ wallets, period ↔ end date / rollover), locks, live previews |
+| Transaction, Budget, Recurring, Savings goal, Wallet, Category, Contribution, Record occurrence | `@Observable` model + tests | dependent fields (kind ↔ category, currency ↔ wallets, period ↔ end date / rollover, type ↔ sign), locks, live previews |
 | Transaction list + filter sheet | `TransactionListModel` | one state shared by two views through `@Bindable` |
 | Dashboard, Reports | thin `@Observable` models | own the period and a `LoadState`; the calculations live in `ReportService` / `ReportRules` |
-| Wallet, Category, Contribution | `@State` in the view | few fields; the real rules (liability sign, type/currency locks, withdrawal limit) are already in domain rules and services with tests |
 
 A screen gets an `@Observable` model once it has more than trivial logic. The model:
 
@@ -58,6 +57,18 @@ A screen gets an `@Observable` model once it has more than trivial logic. The mo
 - performs actions through a service and keeps the last `failure` for the view to present.
 
 The view creates the model lazily in `onAppear`, because services come from the environment, and binds to it with `@Bindable`. Models live in a package target so `swift test` can cover them without a simulator.
+
+### Keeping a screen up to date
+
+Three mechanisms, each for one kind of data. A new screen picks by what it shows:
+
+| The screen shows | Use | Why it stays current | Examples |
+|---|---|---|---|
+| A list of records as stored | `@Query` | SwiftData updates it on every change | wallet, budget, goal, category lists; pickers |
+| Figures computed from many records (totals, charts, due items) | a model or `@State` reloaded by `.task(id: app.dataVersion)` | `dataVersion` changes after every save of the main context | Home, Reports, Due, recurring list badge |
+| One record's own figures (a budget's progress, a goal's saved amount, a wallet's balance) | a service read in `body` through `ReadResult` / `Result(catching:)` | the record and the records it reads are observed, so the body re-runs when they change; checked on 15 Oct 2026 (Home budget row updated at once after a transaction became irregular) | budget, goal and wallet rows and detail screens |
+
+A read that fails is shown (I14). Code that runs without a screen (notifications) keeps its current state instead: a failed read never reschedules with nothing.
 
 ## Navigation
 
@@ -122,8 +133,11 @@ Wallet 1 ──< LedgerEntry >── 1 LedgerTransaction >── 0..1 LedgerCate
 | V1 (M1) | Wallet, LedgerCategory, LedgerTransaction, LedgerEntry | — |
 | V2 (M3) | adds `Budget`; the four V1 models are reused unchanged | lightweight V1 → V2 |
 | V3 (M5) | adds `SavingsGoal`, `SavingsContribution`, `RecurringTransaction`; earlier models reused | lightweight V2 → V3 |
+| V4 (M8) | `isIrregular` on `LedgerTransaction` and `LedgerCategory` (default false); `RecurringTransaction.categoryID` optional, new `destinationWalletID`, `receivedAmountMinorUnits` | lightweight V3 → V4 |
 
-`MigrationTests` writes a store with the V1 schema only, then reopens it through `ModelContainerFactory`. The test checks that balances and categories survive and that budgets work afterwards.
+V1–V3 share the frozen V1 ledger classes, and a shipped version must never change. V4 therefore has its own copies of the four ledger models and of `RecurringTransaction`; `Budget` (V2) and the savings models (V3) are reused. The app-wide names (`Wallet`, `LedgerTransaction`, …) are typealiases in `CurrentSchema.swift`, the only file to edit when a new version is added.
+
+`MigrationTests` (V1 → current, V3 → V4) write the old store through **Core Data** with the old version's model (`NSManagedObjectModel.makeManagedObjectModel(for: SchemaVn.models)`) and plain `NSManagedObject`s, then open it with `ModelContainerFactory`. Writing it with SwiftData's old classes is not possible in the same process: SwiftData resolves the old entity to the V4 class and crashes (`setValue:forUndefinedKey: isIrregular`). A new schema version adds a test the same way: write the previous version's entities by name, open with the current schema, check the data and the new fields.
 
 ## Application services (Milestones 2–3)
 
@@ -159,7 +173,7 @@ Stored as `Budget`: planned amount and currency, period, start date, optional en
 
 Rules (`BudgetRules`, all covered by tests):
 
-- **What counts:** only expenses. An expense counts if its category, or that category's parent, is in the budget, and its wallet is allowed. Each transaction counts at most once per budget.
+- **What counts:** only regular expenses (irregular ones are left out, see Milestone 8). An expense counts if its category, or that category's parent, is in the budget, and its wallet is allowed. Each transaction counts at most once per budget.
 - **Overlap:** budgets are independent. Two budgets sharing a category both count that spending, and the UI says budgets don't add up.
 - **Currency:** only expenses in the budget's currency count. Others in the current period are reported (`excludedOtherCurrencyCount`), not converted. Wallet restrictions may only name wallets in the budget's currency.
 - **Periods:** weekly (Monday weeks), monthly and yearly follow `CalendarPolicy`.
@@ -187,8 +201,9 @@ Rules (`BudgetRules`, all covered by tests):
 | Assets | sum of balances of asset wallets (current balance, not limited to the period) |
 | Liabilities | amount owed on liability wallets, as a positive number |
 | Net worth | assets − liabilities = sum of every wallet balance |
-| Income / expenses | income and expense entries whose day key is in the period. Transfers are never counted |
-| Net cash flow | income − expenses |
+| Income / expenses | income and **regular** expense entries whose day key is in the period. Transfers are never counted |
+| Irregular expenses | irregular expense entries in the period, shown on their own line and in their own report card (M8) |
+| Net cash flow | income − regular expenses − irregular expenses, so it always equals the change in balances |
 | Archived wallets | included in balances, net worth and historical cash flow. The dashboard notes how many archived wallets still hold money |
 | Opening balances | count from the beginning of time (they have no date). They are not income |
 | Net worth trend | net worth from all entries before the end of each month |
@@ -226,7 +241,7 @@ The currency is locked once a goal has contributions. A wallet linked to a goal 
 
 ## Recurring transactions (Milestone 5)
 
-**Definition.** A `RecurringTransaction` holds the name, kind (income/expense), amount, wallet and category ids, frequency, interval, start date, optional end date, reminder settings, paused flag and `handledOccurrenceKeys`.
+**Definition.** A `RecurringTransaction` holds the name, kind (income, expense or — since M8 — transfer), amount, wallet id, category id (income/expense) or destination wallet id and, between currencies, the received amount (transfer), frequency, interval, start date, optional end date, reminder settings, paused flag and `handledOccurrenceKeys`.
 
 **Occurrences** (`RecurrenceRules`):
 - Occurrences are anchored to the start date, so they never drift (31 Jan → 28 Feb → 31 Mar; 29 Feb → 28 Feb in non-leap years).
@@ -237,24 +252,28 @@ The currency is locked once a goal has contributions. A wallet linked to a goal 
 - They are computed when the app is active. There is no background processing.
 - **Recording** inserts the transaction, tagged with `recurringOccurrenceKey`, and adds the key to `handledOccurrenceKeys` in **one save**.
 - Duplicates are blocked twice: by the handled list, and by a ledger lookup on the key. **Skipping** only marks the key handled.
-- Editing a definition affects future occurrences only. Deleting it keeps the transactions already recorded.
-- Wallets and categories used by a definition can't be deleted.
+- Editing a definition affects future occurrences only. When the schedule changes, occurrences of the new schedule before today are marked handled, so they are not offered as due. Deleting a definition keeps the transactions already recorded.
+- Deleting a recorded transaction makes its occurrence due again. Skipped occurrences (and ones passed over by a schedule change) are listed on the definition and can be made due again.
+- A definition whose wallet (either side of a transfer) or category is archived is **on hold**: nothing becomes due and no reminders are scheduled, and the screen says why. Archiving stays possible (it is the way out when a wallet can't be deleted); restoring the wallet or category, or editing the item, lifts the hold.
+- *Coming up* skips occurrences already recorded or skipped early.
+- Wallets (on either side of a transfer) and categories used by a definition can't be deleted.
 
 ## Notifications (Milestone 5)
 
 `ReminderCoordinator` (app target) uses UserNotifications. Permission is requested only when the user turns on a reminder or taps *Allow* in Settings → Notifications.
 
 - **Recurring reminders:** the next 3 occurrences of each definition with reminders on, at most 60 in total (iOS keeps 64 pending). They are rescheduled after every save and whenever the app becomes active.
-- **Budget alerts:** when a budget reaches its thresholds (80 % and 100 % by default) in the current period, one notification is sent. Thresholds already alerted are remembered per budget period in `UserDefaults` (no financial data stored there). Alerts can be switched off.
+- **Budget alerts:** when a budget reaches one of its thresholds in the current period, one notification is sent. Each budget chooses any of 50 / 80 / 90 / 100 % (default 80 and 100; none = off for that budget; `BudgetAlertRules.allowedThresholds`). Thresholds already alerted are remembered per budget period in `UserDefaults` (no financial data stored there). Alerts can be switched off.
+- **Read errors:** if the planned reminders or the budgets can't be read, nothing is rescheduled or forgotten; the reminders already scheduled stay until the next refresh. A tapped budget alert whose budget can't be read opens Budgets with an alert saying so (`AppRouter.routeFailure`).
 - **Limits, also shown in the app:** iOS controls delivery, and nothing is recorded automatically. The app has no background execution, so due items wait until the app is opened.
 
 ## Backup, restore and export (Milestone 6)
 
 | Piece | Where | Notes |
 |---|---|---|
-| `BackupDocument` | FinanceDomain | plain `Codable` records for every entity; `format` + `formatVersion` (1) independent of the database schema; nested entries and contributions |
+| `BackupDocument` | FinanceDomain | plain `Codable` records for every entity; `format` + `formatVersion` (2) independent of the database schema; nested entries and contributions. Format 2 (M8) adds optional `isIrregular` on categories and transactions and recurring transfers (`categoryID` optional, `destinationWalletID`, `receivedAmountMinorUnits`); format 1 files still restore, missing fields meaning "not irregular", and older apps refuse format 2 files |
 | `BackupCodec` | FinanceDomain | pretty, sorted-key JSON; ISO 8601 dates with milliseconds; other JSON → `notABackup`, newer format → `newerFormat` |
-| `BackupValidator` | FinanceDomain | unique ids, known enum values and currencies, every reference resolvable, no category cycles, balanced transactions (income +, expense −, transfer −/+ between two wallets, equal amounts in one currency), savings never below zero |
+| `BackupValidator` | FinanceDomain | unique ids, known enum values and currencies, every reference resolvable, no category cycles, alert thresholds from the allowed set, recurring transfers with a different existing destination wallet (income/expenses with a category), balanced transactions (income +, expense −, transfer −/+ between two wallets, equal amounts in one currency), savings never below zero |
 | `BackupService` | FinancePersistence | `makeBackup()`, `restore(_:)`, `hasUserData()` |
 | `ExportService` | FinancePersistence | transactions CSV, signed per wallet, transfers with receiving wallet/amount, optional date range |
 | `CSVTable` | FinanceDomain | RFC 4180, CRLF, UTF-8 BOM for Excel, `'` prefix on user text starting with `= + - @` |
@@ -271,6 +290,20 @@ Backups contain ids, so restoring the same file twice gives the same data (no du
 - Import only **adds**. Rows whose ID already exists (or repeats in the file) are skipped, so the same file can be imported again safely. Rows without a known ID that match an existing transaction (same day, kind, wallet, amount) are "possible duplicates", skipped unless the user opts in.
 - Wallets and categories are matched by name ignoring case, accents and extra spaces (active before archived); missing ones are created (wallets as "Other" with no opening balance, categories incl. "Parent / Child").
 - Every row is checked with the same `LedgerRules` as manual entry during the preview; bad rows are listed with their line number and left out. Confirming writes a safety copy, then inserts everything through `TransactionService.insertCashFlow/insertTransfer` and saves once.
+
+## Spending accuracy (Milestone 8)
+
+**Irregular expenses** (option C of the roadmap): a one-off cost such as a trip or a laptop.
+- `LedgerCategory.isIrregular` is the default for new expenses in that category; `LedgerTransaction.isIrregular` is what counts, and the expense form can override it (`CashFlowDraft.isIrregular`: nil = category default). Only expenses can be irregular. Changing a category's default never rewrites existing expenses.
+- Irregular expenses change balances and net worth like any expense.
+- They are **not spending**: `CashFlowSummary.expenses`, category/wallet breakdowns, daily spending and budgets (`BudgetRules`) use regular expenses only. `irregularExpenses` and `irregularExpensesByCategory` report them apart, and `net` includes both.
+- CSV export has an "Irregular" column (`Yes` / empty); import reads it (missing column → category default). Backups keep the flags.
+
+**Sub-categories.** Two levels: a parent is a top-level category of the same type, never the category itself, and a category that has sub-categories can't move under another (`CategoryService`). The type of a category with transactions, sub-categories, budgets or recurring items can't change. Lists show children indented under their parent (`inHierarchy()`). Reports roll children up into the parent (`expensesByCategory`) and a parent row expands to itself plus each child (`expensesWithin`). Budgets already included children (M3).
+
+**Per-budget alerts.** `BudgetDraft.alertThresholds`, a subset of 50/80/90/100 (`BudgetAlertRules.normalizedThresholds`); empty turns alerts off for that budget. The global switch in Notifications still applies.
+
+**Recurring transfers.** `RecurringDraft` with kind `.transfer`, `destination` and (between currencies) `receivedAmount`, validated with the same `LedgerRules.validateTransfer` as a manual transfer. Recording calls `TransactionService.insertTransfer` with the occurrence key, so duplicates are blocked as for income and expenses. Recording a different amount between currencies requires the received amount too (it can't be derived without converting).
 
 ## Amount input
 
@@ -293,9 +326,53 @@ Anything else is rejected with a message, never guessed.
 
 `creditCard` is a **liability**; every other wallet type is an asset. All balances use the same sign convention: negative means owed. A card with 2,000,000 VND of debt has a balance of −2,000,000. A card purchase is an expense when it happens. Paying the card is a transfer (bank −, card +), not an expense.
 
+## Localization (Milestone 7)
+
+- **Languages:** English (development language), Vietnamese and Japanese. Dates, numbers and money follow `Locale`; number and currency formats keep the device's region.
+- **Choosing the language:** *More › Language* (Same as device / English / Tiếng Việt / 日本語) or iOS *Settings › Apps › Finance › Language*. Both write the same value, the app's own `AppleLanguages` preference, so they always agree (`LanguageSettings`).
+- **Switching without relaunching:** iOS fixes a process's language at launch, so the app switches in three places at once: (1) the root view gets `environment(\.locale)` in the chosen language, which SwiftUI uses for `Text`, `Button`, `Label` … keys; (2) `AppLocalization.languageCode` is set, and every `String(localized:bundle: .l10n)` looks the key up in that language's `.lproj` inside the bundle (`.main` in the app, `.module` in each FinanceKit target); (3) the root view is rebuilt (`.id(language)`), so every computed text is evaluated again. Tabs and navigation paths live in `AppRouter`, so the user stays on the same screen. Formats that use `Locale.current` directly (`date.formatted()`) switch fully on the next launch.
+- **Rule for new code:** computed texts use `String(localized: "…", bundle: .l10n)`, never plain `String(localized:)` or `bundle: .module`; SwiftUI literals need nothing.
+- **Where texts live:** one String Catalog per bundle: `PersonalFinance/Resources/Localizable.xcstrings` for the app, and `Sources/<Target>/Resources/Localizable.xcstrings` for each FinanceKit target. The English text is the key, and English values are written out so every bundle has an `en.lproj` to switch to. SwiftUI literals (`Text("…")`, `Button("…")`, `LocalizedStringKey` parameters) are extracted by Xcode at build time.
+- **Format specifiers:** keys use `%@` for text and `%lld` for integers, as Xcode generates them. Translations reorder arguments with positional specifiers (`%1$@`, `%2$lld`). English plural variations are used where a count changes the wording.
+- **Check:** `scripts/check_localizations.py` fails when a key has no Vietnamese or Japanese value or a translation changes the specifiers. Xcode adds new keys to the catalogs when you build; run the script (or open the catalog in Xcode) to find what still needs translating.
+- **Built-in categories are data, not UI text.** They are seeded in the app's language (`SeedLanguage`: en, vi, ja). At launch and whenever the language changes in the app, `DefaultCategorySeeder.localizeUntouched` renames a built-in category to the current language only while its name still equals one of its seed names; anything the user renamed or created is never touched. Only the name changes; transactions, budgets and recurring items refer to categories by identity.
+- **CSV stays English** (headers, `Income`/`Expense`/`Transfer`) so a file exported in one language imports in another. Import also accepts Vietnamese and Japanese type names (`Chi tiêu`, `Chuyển tiền`, `支出`, `振替`, …) and matches built-in categories by any of their seed names (`Food & Drinks` ↔ `Ăn uống` ↔ `食費`), unless the user renamed them.
+- **Backup** stores names as they are; after restoring a backup made in another language, untouched built-ins are renamed at the next launch or language change.
+- **Reminders** are written in the language active when they are scheduled; they are rescheduled when the app becomes active or data changes.
+
 ## Dates
 
 `CalendarPolicy` is the only place where instants become days or periods. It uses the Gregorian calendar, the user's time zone, and weeks starting on Monday. Periods are half-open `[start, end)`. Each transaction stores `dayKey` (yyyymmdd, local at entry time), so grouping by day doesn't shift when the user travels.
+
+## Invariants
+
+Rules the data and the app must always satisfy. Every change checks the ones it
+touches (DEFINITION_OF_DONE.md). "Not enforced" rows are known gaps, to be fixed;
+they are listed so nobody assumes otherwise.
+
+| # | Invariant | Enforced by | Status |
+|---|---|---|---|
+| I1 | A wallet's balance is its opening balance plus the sum of its entries; no balance is stored | `Wallet.currentBalance()`, `ReportRules.balances`; tests compare both | enforced |
+| I2 | Income has one positive entry, an expense one negative entry, a transfer one out and one in between two wallets | `TransactionService`, `LedgerRules`, `BackupValidator` | enforced |
+| I3 | A transaction's category has the type its kind requires; a category's type can't change while transactions, sub-categories, budgets or recurring items use it | `LedgerRules`, `CategoryService` | enforced |
+| I4 | Sub-categories: two levels, same type as the parent, never the category itself | `CategoryService.validateParent`, `BackupValidator` (cycles) | enforced |
+| I5 | A recurring occurrence becomes at most one transaction | handled keys + ledger lookup of `recurringOccurrenceKey` | enforced |
+| I6 | Deleting a transaction recorded from a recurring item makes that occurrence due again; a skip can be undone | `TransactionService.delete` removes the handled key in the same save; `RecurringService.skippedOccurrences` / `reopen`; tests | enforced |
+| I7 | A wallet's currency does not change while anything refers to it (recurring items copy it; budgets and goals require it) | `WalletService.update` (history, recurring on either side, budgets, goals); tests | enforced |
+| I8 | Archiving a wallet or category never leaves something due that can't be recorded | `RecurringService`: an item whose wallet (either side) or category is archived is on hold (`hold(of:)`): no due occurrences, upcoming or reminders; restoring lifts it; tests | enforced |
+| I9 | Every stored id (budget categories/wallets, recurring wallet/category/destination, goal wallet) resolves | delete checks in `WalletService`, `CategoryService`; `BackupValidator` | enforced |
+| I10 | Irregular expenses change balances but are not spending: not in budgets or spending reports; cash-flow net includes them | `ReportRules`, `BudgetRules` | enforced |
+| I11 | Days, weeks and periods come from `CalendarPolicy` | root `.environment(\.calendar, calendarPolicy.calendar)`; views read `@Environment(\.calendar)`; `check_conventions.py` C1 | enforced. One marked exception: notification triggers use the device calendar (`ReminderCoordinator`) |
+| I12 | Every text, date, number and amount follows the language chosen in the app | `String(localized:bundle: .l10n)`, root `locale`; `AppLocalization.locale` (`Locale.app` in the app) passed to every `.formatted(...)`; `MoneyFormatter()` defaults to it; C2; `AppLocalizationTests` | enforced |
+| I13 | Settings the docs promise are in the project (languages in `knownRegions`, Files sharing keys) | `check_conventions.py` C10 | enforced |
+| I14 | A failed read is shown on screen, never replaced by nothing, zero or an empty list; code without a screen keeps its current state | `ReadResult` / `Result(catching:)` + `ReadFailureLabel`; form models expose `loadFailure` and block saving; `AppRouter.routeFailure`; reminders keep their schedule on a read error; `check_conventions.py` C8 (error) flags any `try?` on a service, container or context read in the app and FinanceFeatures | enforced |
+| I15 | Archived wallets are never offered where a wallet is picked (transaction, recurring item, goal, budget, transaction filter) | `WalletChoices.selectable` in every form model/view; services reject linking an archived wallet (recurring: `LedgerRules`; goal: `SavingsService`; budget: can keep, can't add); an edited item on an archived wallet asks for another; `ArchivedWalletChoiceTests` | enforced |
+
+### Device-only state
+
+Kept in `UserDefaults`, not in the database and not in backups: `AppleLanguages`
+(app language), `lastBackupAt`, `budgetAlertsEnabled`, `sentBudgetAlerts`
+(alerts already sent; only the current period of each budget is kept, see `BudgetAlertRules.keysToKeep`). Anything else belongs in the database.
 
 ## Open product decisions
 
@@ -320,11 +397,16 @@ PersonalFinance/                 app target (synchronized folder: new files are 
   DesignSystem/                  colours, metrics, type, reusable components
   Features/<Feature>/            views (and view models when a screen needs one)
   Support/                       preview traits
-  Resources/Assets.xcassets
+  Resources/Assets.xcassets      app icon (light/dark/tinted), accent colour
+  Resources/Localizable.xcstrings   app texts (en, vi, ja)
 Packages/FinanceKit/
   Sources/FinanceDomain/
+  Sources/<Target>/Resources/Localizable.xcstrings
   Sources/FinancePersistence/Schema/
   Tests/FinanceDomainTests/
   Tests/FinancePersistenceTests/
 docs/
+  app-icon/                      icon concepts (SVG sources) and the comparison sheet
+scripts/
+  check_localizations.py         translation check
 ```

@@ -23,6 +23,7 @@ public enum AppScreen: String, Hashable, CaseIterable, Sendable {
     case notifications
     case backup
     case dataPrivacy
+    case language
 }
 
 /// Where a tapped notification should lead. Encoded into the notification's
@@ -72,6 +73,10 @@ public final class AppRouter {
     /// the UI is ready to resolve it. Lets a cold launch work the same way.
     public private(set) var pendingRoute: NotificationRoute?
 
+    /// Set when a route couldn't be followed because its record couldn't be
+    /// read; the app shows it and calls `clearRouteFailure()`.
+    public private(set) var routeFailure: (any Error)?
+
     private var paths: [AppTab: NavigationPath] = [:]
 
     public init() {}
@@ -108,6 +113,7 @@ public final class AppRouter {
     public func reset() {
         paths = [:]
         pendingRoute = nil
+        routeFailure = nil
         selectedTab = .home
     }
 
@@ -118,22 +124,31 @@ public final class AppRouter {
     }
 
     /// Navigates to the pending route, if any, and clears it.
-    /// A budget that no longer exists falls back to the Budgets tab.
+    /// A budget that no longer exists falls back to the Budgets tab; one that
+    /// can't be read does too, and `routeFailure` says why (never silent).
     @discardableResult
-    public func resolvePending(budget lookup: (UUID) -> Budget?) -> Bool {
+    public func resolvePending(budget lookup: (UUID) throws -> Budget?) -> Bool {
         guard let route = pendingRoute else { return false }
         pendingRoute = nil
         switch route {
         case .due:
             open(AppScreen.due, in: .home)
         case .budget(let id):
-            if let budget = lookup(id) {
-                open(budget, in: .budgets)
-            } else {
-                popToRoot(.budgets)
-                selectedTab = .budgets
+            do {
+                if let budget = try lookup(id) {
+                    open(budget, in: .budgets)
+                    return true
+                }
+            } catch {
+                routeFailure = error
             }
+            popToRoot(.budgets)
+            selectedTab = .budgets
         }
         return true
+    }
+
+    public func clearRouteFailure() {
+        routeFailure = nil
     }
 }

@@ -1,0 +1,2 @@
+# Known convention violations; see scripts/check_conventions.py. Shrink it, never grow it.
+

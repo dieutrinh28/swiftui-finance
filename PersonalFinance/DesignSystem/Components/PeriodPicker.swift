@@ -6,12 +6,12 @@ extension ReportingPeriod {
 
     var displayName: String {
         switch self {
-        case .thisWeek: String(localized: "This week")
-        case .thisMonth: String(localized: "This month")
-        case .lastMonth: String(localized: "Last month")
-        case .thisYear: String(localized: "This year")
+        case .thisWeek: String(localized: "This week", bundle: .l10n)
+        case .thisMonth: String(localized: "This month", bundle: .l10n)
+        case .lastMonth: String(localized: "Last month", bundle: .l10n)
+        case .thisYear: String(localized: "This year", bundle: .l10n)
         case .custom(let first, let last):
-            "\(first.formatted(.dateTime.day().month(.abbreviated))) – \(last.formatted(.dateTime.day().month(.abbreviated).year()))"
+            "\(first.formatted(.dateTime.day().month(.abbreviated).locale(.app))) – \(last.formatted(.dateTime.day().month(.abbreviated).year().locale(.app)))"
         }
     }
 
@@ -26,7 +26,8 @@ struct PeriodPicker: View {
     @Binding var selection: ReportingPeriod
 
     @State private var showingCustom = false
-    @State private var customStart = Calendar.current.date(byAdding: .day, value: -6, to: .now) ?? .now
+    // The start is only a default for the custom range; CalendarPolicy is not reachable here.
+    @State private var customStart = Date.now.addingTimeInterval(-6 * 86_400)
     @State private var customEnd = Date.now
 
     var body: some View {

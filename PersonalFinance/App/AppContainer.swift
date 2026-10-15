@@ -30,6 +30,8 @@ final class AppContainer {
     @ObservationIgnored let reminders = ReminderCoordinator()
     /// Selected tab and navigation paths; driven from outside screens (notification taps).
     let router = AppRouter()
+    /// The language the app is shown in; switchable in More › Language.
+    let language: LanguageSettings
 
     /// Increases after every successful save of the main context. Screens that
     /// derive numbers from many records (dashboard, reports) reload when it changes.
@@ -40,15 +42,27 @@ final class AppContainer {
     convenience init(location: StoreLocation) throws {
         let container = try ModelContainerFactory.makeContainer(at: location)
         container.mainContext.autosaveEnabled = false
-        try DefaultCategorySeeder.seedIfNeeded(in: container.mainContext)
-        self.init(modelContainer: container, location: location)
+        // Built-in categories follow the language the app is shown in
+        // (device language, the per-app language in iOS Settings, or the
+        // choice in More › Language). Categories the user renamed are never touched.
+        let language = LanguageSettings()
+        let seedLanguage = SeedLanguage(localization: language.effectiveCode)
+        try DefaultCategorySeeder.seedIfNeeded(in: container.mainContext, language: seedLanguage)
+        try DefaultCategorySeeder.localizeUntouched(in: container.mainContext, to: seedLanguage)
+        self.init(modelContainer: container, location: location, language: language)
     }
 
     /// Wraps an already-open container (used by previews).
-    init(modelContainer: ModelContainer, location: StoreLocation, calendarPolicy: CalendarPolicy = CalendarPolicy()) {
+    init(
+        modelContainer: ModelContainer,
+        location: StoreLocation,
+        calendarPolicy: CalendarPolicy = CalendarPolicy(),
+        language: LanguageSettings? = nil
+    ) {
         let context = modelContainer.mainContext
         context.autosaveEnabled = false
 
+        self.language = language ?? LanguageSettings()
         self.modelContainer = modelContainer
         self.storeLocation = location
         self.calendarPolicy = calendarPolicy
@@ -69,6 +83,20 @@ final class AppContainer {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.dataVersion += 1 }
+        }
+    }
+
+    /// Switches the app's language now: texts, built-in category names (if
+    /// the user never renamed them) and, through the next refresh, reminders.
+    func setLanguage(_ choice: AppLanguage) {
+        language.select(choice)
+        do {
+            try DefaultCategorySeeder.localizeUntouched(
+                in: modelContainer.mainContext,
+                to: SeedLanguage(localization: language.effectiveCode)
+            )
+        } catch {
+            // Names stay as they are; the next launch tries again. Nothing else depends on them.
         }
     }
 }

@@ -23,10 +23,6 @@ public enum SchemaV3: VersionedSchema {
     }
 }
 
-public typealias SavingsGoal = SchemaV3.SavingsGoal
-public typealias SavingsContribution = SchemaV3.SavingsContribution
-public typealias RecurringTransaction = SchemaV3.RecurringTransaction
-
 extension SchemaV3 {
     /// Money set aside for a purpose. An earmark only: contributions never
     /// change wallet balances or net worth.
@@ -190,7 +186,7 @@ extension SchemaV3.SavingsContribution {
     public var isWithdrawal: Bool { amountMinorUnits < 0 }
 }
 
-extension SchemaV3.RecurringTransaction {
+extension RecurringTransaction {
     public var kind: TransactionKind? { TransactionKind(rawValue: kindRaw) }
     public var frequency: RecurrenceFrequency? { RecurrenceFrequency(rawValue: frequencyRaw) }
 
@@ -204,4 +200,13 @@ extension SchemaV3.RecurringTransaction {
     }
 
     public var isPaused: Bool { pausedAt != nil }
+
+    public var isTransfer: Bool { kind == .transfer }
+
+    /// Cross-currency transfers: the stored received amount in `destination`'s
+    /// currency; nil when none is stored (same currency: equals `amount`).
+    public func receivedAmount(in destination: Wallet) throws -> Money? {
+        guard let minor = receivedAmountMinorUnits else { return nil }
+        return Money(minorUnits: minor, currency: try CurrencyCatalog.definition(for: destination.currencyCode))
+    }
 }

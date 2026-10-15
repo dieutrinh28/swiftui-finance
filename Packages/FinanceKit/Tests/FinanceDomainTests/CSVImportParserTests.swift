@@ -88,6 +88,21 @@ struct TransactionCSVParserTests {
         #expect(Self.policy.calendar.component(.hour, from: result.rows[0].date) == 12)
     }
 
+    /// Type names as the Vietnamese and Japanese UI show them are accepted too.
+    @Test(arguments: [
+        ("Thu nhập", TransactionKind.income), ("Chi tiêu", .expense),
+        ("Chuyển tiền", .transfer), ("Chuyển khoản", .transfer), ("TRANSFER", .transfer),
+        ("収入", .income), ("支出", .expense), ("振替", .transfer),
+    ])
+    func vietnameseTypeNames(name: String, kind: TransactionKind) throws {
+        let row = kind == .transfer
+            ? "2026-10-12 10:00,\(name),Bank,,-1000,VND,Cash,,,,,"
+            : "2026-10-12 10:00,\(name),Cash,\(kind == .income ? "Lương" : "Ăn uống"),1000,VND,,,,,,"
+        let result = try parse([row])
+        #expect(result.issues.isEmpty)
+        #expect(result.rows.first?.kind == kind)
+    }
+
     @Test func badRowsAreReportedNotImported() throws {
         let result = try parse([
             "yesterday,Expense,Cash,Food,-1,VND,,,,,,",

@@ -41,24 +41,25 @@ private struct ReportsContent: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.lg) {
+            VStack(alignment: .leading, spacing: Spacing.section) {
                 controls
 
                 switch model.state {
                 case .idle:
                     ProgressView().frame(maxWidth: .infinity)
                 case .failed(let error):
-                    Label((error as? LocalizedError)?.errorDescription ?? String(localized: "The report couldn't be calculated."),
-                          systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(AppColor.expense)
-                        .cardStyle()
+                    NoticeBanner(systemImage: "exclamationmark.triangle",
+                                 title: "The report couldn't be calculated.",
+                                 message: LocalizedStringKey((error as? LocalizedError)?.errorDescription ?? ""),
+                                 tone: .attention)
                 case .loaded(let report):
                     sections(report)
                 }
             }
-            .padding(Spacing.lg)
+            .padding(.horizontal, Spacing.screen)
+            .padding(.vertical, Spacing.lg)
         }
-        .background(AppColor.background)
+        .screenBackground()
         .onChange(of: model.period) { model.reload() }
         .onChange(of: model.currency) { model.reload() }
     }
@@ -66,6 +67,9 @@ private struct ReportsContent: View {
     private var controls: some View {
         HStack {
             PeriodPicker(selection: $model.period)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
+                .background(AppColor.softBlue, in: Capsule())
             Spacer()
             if let report = model.state.value, report.availableCurrencies.count > 1 {
                 Picker("Currency", selection: Binding(
@@ -83,12 +87,9 @@ private struct ReportsContent: View {
 
     @ViewBuilder
     private func sections(_ report: ReportOverview) -> some View {
-        ReportCard(title: "Income vs expenses") {
-            HStack(alignment: .top, spacing: Spacing.lg) {
-                StatColumn(title: "Income") { MoneyText(money: report.cashFlow.income, tone: .income, font: .amountDetail) }
-                StatColumn(title: "Expenses") { MoneyText(money: report.cashFlow.expenses, tone: .expense, font: .amountDetail) }
-                StatColumn(title: "Net") { MoneyText(money: report.cashFlow.net, tone: .balance, font: .amountDetail) }
-            }
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            SectionHeader("Income vs expenses")
+            CashFlowSummaryView(flow: report.cashFlow, showsCurrency: false)
         }
 
         ReportCard(title: "Spending trend", subtitle: "Running total of expenses in the period") {
@@ -97,7 +98,7 @@ private struct ReportsContent: View {
             } else {
                 MoneyLineChart(
                     points: report.dailyExpenses.map { .init(date: $0.date, value: $0.cumulative) },
-                    seriesName: String(localized: "Spent so far"),
+                    seriesName: String(localized: "Spent so far", bundle: .l10n),
                     unit: .day
                 )
             }
@@ -107,7 +108,18 @@ private struct ReportsContent: View {
             if report.expensesByCategory.isEmpty {
                 EmptyReportText()
             } else {
-                BreakdownList(rows: report.expensesByCategory.map {
+                BreakdownList(
+                    rows: report.expensesByCategory.map { BreakdownList.Row.make($0, categories: report.categories) },
+                    details: Dictionary(uniqueKeysWithValues: report.subcategoryBreakdowns.map { parent, shares in
+                        (AmountShare.Key.category(parent), shares.map { BreakdownList.Row.make($0, categories: report.categories) })
+                    })
+                )
+            }
+        }
+
+        if !report.irregularByCategory.isEmpty {
+            ReportCard(title: "Irregular expenses", subtitle: "Lower your balances but not counted as spending") {
+                BreakdownList(rows: report.irregularByCategory.map {
                     BreakdownList.Row.make($0, categories: report.categories)
                 })
             }
@@ -126,12 +138,16 @@ private struct ReportsContent: View {
 
         if !budgets.isEmpty {
             ReportCard(title: "Budget vs actual", subtitle: "Each budget's current period") {
-                VStack(alignment: .leading, spacing: Spacing.md) {
+                VStack(spacing: 0) {
                     ForEach(budgets) { budget in
                         NavigationLink(value: budget) {
                             BudgetRow(budget: budget)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        if budget.id != budgets.last?.id {
+                            RowDivider()
+                        }
                     }
                 }
             }
@@ -139,12 +155,16 @@ private struct ReportsContent: View {
 
         if !goals.isEmpty {
             ReportCard(title: "Savings goals", subtitle: "Money set aside; not counted twice in net worth") {
-                VStack(alignment: .leading, spacing: Spacing.md) {
+                VStack(spacing: 0) {
                     ForEach(goals) { goal in
                         NavigationLink(value: goal) {
                             SavingsGoalRow(goal: goal)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        if goal.id != goals.last?.id {
+                            RowDivider()
+                        }
                     }
                 }
             }
@@ -158,7 +178,7 @@ private struct ReportsContent: View {
         ReportCard(title: "Net worth", subtitle: "Balance of all wallets at the end of each month") {
             MoneyLineChart(
                 points: report.netWorthTrend.map { .init(date: $0.start, value: $0.netWorth) },
-                seriesName: String(localized: "Net worth")
+                seriesName: String(localized: "Net worth", bundle: .l10n)
             )
         }
 
@@ -169,8 +189,9 @@ private struct ReportsContent: View {
                 Text("Transfers are not income or expenses. Archived wallets are included. Opening balances count from the start.")
             }
         }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        .font(.fine)
+        .foregroundStyle(AppColor.textSecondary)
+        .padding(.horizontal, Spacing.xs)
     }
 }
 
@@ -189,24 +210,27 @@ private struct ReportCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(title).font(.headline)
+                SectionHeader(title)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.meta)
+                        .foregroundStyle(AppColor.textSecondary)
+                        .padding(.horizontal, Spacing.xs)
                 }
             }
-            content
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                content
+            }
+            .cardStyle()
         }
-        .cardStyle()
     }
 }
 
 private struct EmptyReportText: View {
     var body: some View {
         Text("No expenses in this period.")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .font(.supporting)
+            .foregroundStyle(AppColor.textSecondary)
     }
 }
 
@@ -218,9 +242,9 @@ private struct MonthlyNetTable: View {
         VStack(spacing: Spacing.xs) {
             ForEach(points.reversed()) { point in
                 HStack {
-                    Text(point.start.formatted(.dateTime.month(.abbreviated).year()))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(point.start.formatted(.dateTime.month(.abbreviated).year().locale(.app)))
+                        .font(.fine)
+                        .foregroundStyle(AppColor.textSecondary)
                     Spacer()
                     MoneyText(money: point.net, tone: .balance, font: .amountDetail)
                 }

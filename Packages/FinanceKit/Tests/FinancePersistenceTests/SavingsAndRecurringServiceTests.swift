@@ -113,6 +113,7 @@ struct SavingsServiceTests {
 @Suite("Recurring transactions")
 struct RecurringServiceTests {
     /// Monthly rent of 6,000,000 from the bank, starting 1 September 2026 (the clock is 12 October).
+    @discardableResult
     private func rent(_ ledger: Ledger, bank: Wallet, start: Date? = nil, reminder: Bool = false) throws -> RecurringTransaction {
         let calendar = PreviewFixtures.calendarPolicy.calendar
         let september = calendar.date(byAdding: .month, value: -1, to: calendar.dateInterval(of: .month, for: Ledger.clock)!.start)!
@@ -191,18 +192,84 @@ struct RecurringServiceTests {
         #expect(try ledger.recurring.plannedReminders(after: Ledger.clock).isEmpty)
     }
 
-    @Test func archivedWalletBlocksRecordingWithoutWriting() throws {
+    /// I8: an archived wallet puts the item on hold instead of offering
+    /// occurrences that can't be recorded; restoring the wallet lifts it.
+    @Test func archivedWalletPutsTheItemOnHold() throws {
         let ledger = try Ledger()
         let bank = try ledger.makeWallet("Bank", opening: 50_000_000)
-        try rent(ledger, bank: bank)
+        let definition = try rent(ledger, bank: bank, reminder: true)
         let first = try #require(try ledger.recurring.dueOccurrences(at: Ledger.clock).first)
         try ledger.wallets.archive(bank)
 
-        #expect(throws: LedgerValidationError.archivedWallet) {
-            try ledger.recurring.record(first)
+        #expect(try ledger.recurring.dueOccurrences(at: Ledger.clock).isEmpty)
+        #expect(try ledger.recurring.upcoming(from: Ledger.clock, days: 60).isEmpty)
+        #expect(try ledger.recurring.plannedReminders(after: Ledger.clock).isEmpty)
+        guard case .archivedWallet(let held)? = try ledger.recurring.hold(of: definition) else {
+            Issue.record("expected a hold"); return
         }
+        #expect(held.id == bank.id)
+        // An occurrence fetched before archiving still can't write anything.
+        #expect(throws: LedgerValidationError.archivedWallet) { try ledger.recurring.record(first) }
         #expect(try ledger.count(LedgerTransaction.self) == 0)
+
+        try ledger.wallets.restore(bank)
+        #expect(try ledger.recurring.hold(of: definition) == nil)
         #expect(try ledger.recurring.dueOccurrences(at: Ledger.clock).count == 2)
+    }
+
+    @Test func archivedCategoryPutsTheItemOnHold() throws {
+        let ledger = try Ledger()
+        let bank = try ledger.makeWallet("Bank", opening: 50_000_000)
+        let definition = try rent(ledger, bank: bank)
+        let housing = try ledger.category("expense.housing")
+        try ledger.categories.archive(housing)
+
+        #expect(try ledger.recurring.dueOccurrences(at: Ledger.clock).isEmpty)
+        guard case .archivedCategory? = try ledger.recurring.hold(of: definition) else {
+            Issue.record("expected a hold"); return
+        }
+        try ledger.categories.restore(housing)
+        #expect(try ledger.recurring.dueOccurrences(at: Ledger.clock).count == 2)
+    }
+
+    /// I6: deleting a recorded occurrence makes it due again; editing it doesn't.
+    @Test func deletingARecordedOccurrenceMakesItDueAgain() throws {
+        let ledger = try Ledger()
+        let bank = try ledger.makeWallet("Bank", opening: 50_000_000)
+        let definition = try rent(ledger, bank: bank)
+        let first = try #require(try ledger.recurring.dueOccurrences(at: Ledger.clock).first)
+        let recorded = try ledger.recurring.record(first)
+        #expect(try ledger.recurring.dueOccurrences(at: Ledger.clock).count == 1)
+
+        try ledger.transactions.delete(recorded)
+        #expect(!definition.handledOccurrenceKeys.contains(first.key))
+        let due = try ledger.recurring.dueOccurrences(at: Ledger.clock)
+        #expect(due.map(\.key).contains(first.key))
+        try ledger.recurring.record(try #require(due.first { $0.key == first.key }))
+        #expect(try bank.currentBalance() == vnd(44_000_000))
+    }
+
+    /// I6: a skip can be undone; a recorded occurrence can't be "reopened".
+    @Test func skippedOccurrencesCanBeMadeDueAgain() throws {
+        let ledger = try Ledger()
+        let bank = try ledger.makeWallet("Bank", opening: 50_000_000)
+        let definition = try rent(ledger, bank: bank)
+        let due = try ledger.recurring.dueOccurrences(at: Ledger.clock)
+        try ledger.recurring.skip(due[0])
+        try ledger.recurring.record(due[1])
+
+        let skipped = try ledger.recurring.skippedOccurrences(of: definition)
+        #expect(skipped.map(\.key) == [due[0].key])        // the recorded one is not "skipped"
+        #expect(skipped.first?.day == due[0].occurrence.day)
+
+        try ledger.recurring.reopen(try #require(skipped.first), of: definition)
+        #expect(try ledger.recurring.dueOccurrences(at: Ledger.clock).map(\.key) == [due[0].key])
+        #expect(try ledger.recurring.skippedOccurrences(of: definition).isEmpty)
+
+        let recordedAsSkipped = SkippedOccurrence(key: due[1].key, day: due[1].occurrence.day, date: due[1].occurrence.date)
+        #expect(throws: LedgerValidationError.duplicateOccurrence) {
+            try ledger.recurring.reopen(recordedAsSkipped, of: definition)
+        }
     }
 
     @Test func upcomingAndReminders() throws {

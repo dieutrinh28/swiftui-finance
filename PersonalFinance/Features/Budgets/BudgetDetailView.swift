@@ -31,17 +31,17 @@ struct BudgetDetailView: View {
                 spending(in: progress.window)
             case .failure(let error):
                 Section {
-                    Label((error as? LocalizedError)?.errorDescription ?? String(localized: "Progress unavailable"),
-                          systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(AppColor.expense)
+                    ReadFailureLabel("Progress unavailable", error: error)
                 }
+                .surfaceRows()
             }
             settings
         }
+        .appGroupedStyle()
         .navigationTitle(budget.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .secondaryAction) {
+            ToolbarItem(placement: .topBarTrailing) {  // not .secondaryAction: iOS nests that in its own "…" overflow menu
                 Menu {
                     Button("Edit Budget", systemImage: "pencil") { showingEdit = true }
                     if budget.isArchived {
@@ -81,20 +81,31 @@ struct BudgetDetailView: View {
 
     private func summary(_ progress: BudgetProgress) -> some View {
         Section {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
                 BudgetStatusLabel(status: progress.status)
-                MoneyText(money: progress.remaining, tone: .balance, font: .amountHero)
-                Text(progress.remaining.isNegative ? "over budget" : "left to spend")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    MoneyText(money: progress.remaining, tone: .balance, font: .amountHero)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Text(progress.remaining.isNegative ? "over budget" : "left to spend")
+                        .font(.label)
+                        .foregroundStyle(AppColor.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
                 BudgetProgressBar(progress: progress)
-                    .padding(.top, Spacing.xs)
                 Text("Spent \(MoneyFormatter().string(from: progress.spent)) of \(MoneyFormatter().string(from: progress.available))")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.meta)
+                    .foregroundStyle(AppColor.textSecondary)
+                if progress.status == .overBudget {
+                    NoticeBanner(systemImage: "exclamationmark.triangle",
+                                 title: "Over budget",
+                                 message: "Spending in this period is above the planned amount.",
+                                 tone: .attention)
+                }
             }
-            .padding(.vertical, Spacing.xs)
+            .padding(.vertical, Spacing.sm)
         }
+        .highlightedRows()
     }
 
     private func details(_ progress: BudgetProgress) -> some View {
@@ -107,13 +118,13 @@ struct BudgetDetailView: View {
             }
             LabeledContent("Spent") { MoneyText(money: progress.spent, font: .amountDetail) }
             if let utilization = progress.utilization {
-                LabeledContent("Used", value: utilization.formatted(.percent.precision(.fractionLength(0...1))))
+                LabeledContent("Used", value: utilization.formatted(.percent.precision(.fractionLength(0...1)).locale(.app)))
             }
             if let allowance = progress.dailyAllowance {
                 LabeledContent("Per day for the rest of the period") { MoneyText(money: allowance, font: .amountDetail) }
             }
             if progress.status != .ended {
-                LabeledContent("Days left", value: progress.daysLeft.formatted())
+                LabeledContent("Days left", value: progress.daysLeft.formatted(.number.locale(.app)))
             }
         } header: {
             Text("This period")
@@ -122,6 +133,7 @@ struct BudgetDetailView: View {
                 Text("\(progress.excludedOtherCurrencyCount) matching expenses use another currency and are not counted. The app never converts currencies on its own.")
             }
         }
+        .surfaceRows()
     }
 
     @ViewBuilder
@@ -130,7 +142,7 @@ struct BudgetDetailView: View {
             switch Result(catching: { try app.budgets.spending(for: budget, in: window) }) {
             case .success(let transactions) where transactions.isEmpty:
                 Text("Nothing spent in this period yet.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColor.textSecondary)
             case .success(let transactions):
                 ForEach(transactions) { transaction in
                     NavigationLink(value: transaction) {
@@ -138,35 +150,45 @@ struct BudgetDetailView: View {
                     }
                 }
             case .failure:
-                Text("Spending couldn't be loaded.")
-                    .foregroundStyle(AppColor.expense)
+                ReadFailureLabel("Spending couldn't be loaded.")
             }
         }
+        .surfaceRows()
     }
 
     private var settings: some View {
         Section("Settings") {
             LabeledContent("Repeats", value: budget.period?.displayName ?? "?")
-            LabeledContent("Starts", value: budget.startDate.formatted(date: .abbreviated, time: .omitted))
+            LabeledContent("Starts", value: budget.startDate.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(.app)))
             if let end = budget.endDate {
-                LabeledContent("Ends", value: end.formatted(date: .abbreviated, time: .omitted))
+                LabeledContent("Ends", value: end.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(.app)))
             }
-            LabeledContent("Categories", value: names(of: (try? app.budgets.categories(of: budget)) ?? []))
-            LabeledContent("Wallets", value: budget.appliesToAllWallets
-                           ? String(localized: "All wallets")
-                           : names(of: (try? app.budgets.wallets(of: budget)) ?? []))
+            LabeledContent("Categories") {
+                ReadResult { try app.budgets.categories(of: budget) } content: { Text(verbatim: names(of: $0)) }
+            }
+            if budget.appliesToAllWallets {
+                LabeledContent("Wallets", value: String(localized: "All wallets", bundle: .l10n))
+            } else {
+                LabeledContent("Wallets") {
+                    ReadResult { try app.budgets.wallets(of: budget) } content: { Text(verbatim: names(of: $0)) }
+                }
+            }
             if budget.period != .custom {
-                LabeledContent("Rollover", value: budget.rolloverEnabled ? String(localized: "On") : String(localized: "Off"))
+                LabeledContent("Rollover", value: budget.rolloverEnabled ? String(localized: "On", bundle: .l10n) : String(localized: "Off", bundle: .l10n))
             }
+            LabeledContent("Alerts", value: budget.alertThresholdPercents.isEmpty
+                           ? String(localized: "Off", bundle: .l10n)
+                           : budget.alertThresholdPercents.sorted().map(BudgetAlertLevel.text).formatted(.list(type: .and).locale(.app)))
         }
+        .surfaceRows()
     }
 
     private func names(of categories: [LedgerCategory]) -> String {
-        categories.map(\.name).formatted(.list(type: .and))
+        categories.map(\.name).formatted(.list(type: .and).locale(.app))
     }
 
     private func names(of wallets: [Wallet]) -> String {
-        wallets.map(\.name).formatted(.list(type: .and))
+        wallets.map(\.name).formatted(.list(type: .and).locale(.app))
     }
 
     private func perform(_ action: () throws -> Void) {

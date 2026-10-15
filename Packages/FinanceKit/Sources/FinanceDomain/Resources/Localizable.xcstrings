@@ -1,0 +1,1524 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "A budget is limited to this wallet. Change that budget first, or archive the wallet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A budget is limited to this wallet. Change that budget first, or archive the wallet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この口座に限定された予算があります。先にその予算を変更するか、口座をアーカイブしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Có ngân sách chỉ áp dụng cho ví này. Hãy sửa ngân sách đó trước, hoặc lưu trữ ví."
+          }
+        }
+      }
+    },
+    "A custom budget needs an end date." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A custom budget needs an end date."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "期間指定の予算には終了日が必要です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngân sách tự chọn ngày cần có ngày kết thúc."
+          }
+        }
+      }
+    },
+    "A recurring transaction uses this category. Change or delete it first, or archive the category." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A recurring transaction uses this category. Change or delete it first, or archive the category."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカテゴリを使う定期取引があります。先にその定期取引を変更・削除するか、カテゴリをアーカイブしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Có giao dịch định kỳ dùng danh mục này. Hãy sửa hoặc xoá giao dịch đó trước, hoặc lưu trữ danh mục."
+          }
+        }
+      }
+    },
+    "A recurring transaction uses this wallet. Change or delete it first, or archive the wallet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A recurring transaction uses this wallet. Change or delete it first, or archive the wallet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この口座を使う定期取引があります。先にその定期取引を変更・削除するか、口座をアーカイブしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Có giao dịch định kỳ dùng ví này. Hãy sửa hoặc xoá giao dịch đó trước, hoặc lưu trữ ví."
+          }
+        }
+      }
+    },
+    "A savings goal is linked to this wallet. Unlink it first, or archive the wallet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A savings goal is linked to this wallet. Unlink it first, or archive the wallet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この口座に紐づく貯金目標があります。先に紐づけを解除するか、口座をアーカイブしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Có mục tiêu tiết kiệm gắn với ví này. Hãy bỏ liên kết trước, hoặc lưu trữ ví."
+          }
+        }
+      }
+    },
+    "A sub-category goes under a top-level category of the same type." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sub-category goes under a top-level category of the same type."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サブカテゴリは同じ種類の最上位カテゴリの下に置きます。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh mục con phải nằm dưới một danh mục cấp cao nhất cùng loại."
+          }
+        }
+      }
+    },
+    "A transfer needs a “To wallet”." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A transfer needs a “To wallet”."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "振替には「To wallet」（入金先口座）が必要です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chuyển tiền cần có cột “To wallet” (ví nhận)."
+          }
+        }
+      }
+    },
+    "A transfer needs two different wallets." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A transfer needs two different wallets."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "振替には異なる 2 つの口座が必要です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chuyển tiền cần hai ví khác nhau."
+          }
+        }
+      }
+    },
+    "Amount “%@” is not a number." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amount “%@” is not a number."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額「%@」は数値ではありません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số tiền “%@” không phải là số."
+          }
+        }
+      }
+    },
+    "Amounts in %@ cannot be combined with amounts in %@ without an explicit exchange rate." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amounts in %@ cannot be combined with amounts in %@ without an explicit exchange rate."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為替レートを指定せずに、%1$@ の金額と %2$@ の金額を合算することはできません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể cộng số tiền bằng %1$@ với số tiền bằng %2$@ khi chưa có tỷ giá rõ ràng."
+          }
+        }
+      }
+    },
+    "Both wallets use the same currency, so the amount sent and received must be equal." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Both wallets use the same currency, so the amount sent and received must be equal."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "両方の口座が同じ通貨のため、送金額と受取額は同じである必要があります。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hai ví dùng cùng loại tiền nên số tiền chuyển đi và nhận được phải bằng nhau."
+          }
+        }
+      }
+    },
+    "Budget alerts can be set at 50, 80, 90 or 100 percent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget alerts can be set at 50, 80, 90 or 100 percent."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予算の通知は 50、80、90、100 パーセントで設定できます。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo ngân sách có thể đặt ở 50, 80, 90 hoặc 100 phần trăm."
+          }
+        }
+      }
+    },
+    "Category “%@” is archived. Restore it first." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category “%@” is archived. Restore it first."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カテゴリ「%@」はアーカイブ済みです。先に復元してください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh mục “%@” đã được lưu trữ. Hãy khôi phục trước."
+          }
+        }
+      }
+    },
+    "Choose at least one expense category for this budget." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose at least one expense category for this budget."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この予算に支出カテゴリを 1 つ以上選んでください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hãy chọn ít nhất một danh mục chi tiêu cho ngân sách này."
+          }
+        }
+      }
+    },
+    "Choose two different wallets for a transfer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose two different wallets for a transfer."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "振替には異なる 2 つの口座を選んでください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hãy chọn hai ví khác nhau để chuyển tiền."
+          }
+        }
+      }
+    },
+    "Currency “%@” is not supported." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Currency “%@” is not supported."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通貨「%@」には対応していません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không hỗ trợ loại tiền “%@”."
+          }
+        }
+      }
+    },
+    "Date “%@” is not recognised (use 2026-10-13 or 13/10/2026)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date “%@” is not recognised (use 2026-10-13 or 13/10/2026)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日付「%@」を認識できません（2026-10-13 または 13/10/2026 の形式で入力してください）。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không nhận ra ngày “%@” (dùng 2026-10-13 hoặc 13/10/2026)."
+          }
+        }
+      }
+    },
+    "Expenses need an expense category." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expenses need an expense category."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支出には支出カテゴリが必要です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khoản chi cần danh mục chi tiêu."
+          }
+        }
+      }
+    },
+    "Income and expenses need a category." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income and expenses need a category."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "収入と支出にはカテゴリが必要です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khoản thu và chi cần có danh mục."
+          }
+        }
+      }
+    },
+    "Income needs an income category." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income needs an income category."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "収入には収入カテゴリが必要です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khoản thu cần danh mục thu nhập."
+          }
+        }
+      }
+    },
+    "Please choose a category." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please choose a category."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カテゴリを選んでください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vui lòng chọn danh mục."
+          }
+        }
+      }
+    },
+    "Please choose the wallet that receives the money." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please choose the wallet that receives the money."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入金先の口座を選んでください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vui lòng chọn ví nhận tiền."
+          }
+        }
+      }
+    },
+    "Please enter a name." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please enter a name."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名前を入力してください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vui lòng nhập tên."
+          }
+        }
+      }
+    },
+    "Please enter an amount." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please enter an amount."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額を入力してください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vui lòng nhập số tiền."
+          }
+        }
+      }
+    },
+    "Repeat every 1 to 365 days, weeks, months or years, and end on or after the start date." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat every 1 to 365 days, weeks, months or years, and end on or after the start date."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繰り返しは 1〜365 の日・週・月・年ごとにし、終了日は開始日以降にしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lặp lại mỗi 1 đến 365 ngày, tuần, tháng hoặc năm, và kết thúc vào hoặc sau ngày bắt đầu."
+          }
+        }
+      }
+    },
+    "The amount can't be negative." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The amount can't be negative."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額をマイナスにすることはできません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số tiền không được âm."
+          }
+        }
+      }
+    },
+    "The amount is too large to be recorded." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The amount is too large to be recorded."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額が大きすぎるため記録できません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số tiền quá lớn để ghi lại."
+          }
+        }
+      }
+    },
+    "The amount is too large." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The amount is too large."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額が大きすぎます。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số tiền quá lớn."
+          }
+        }
+      }
+    },
+    "The amount is zero." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The amount is zero."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額が 0 です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số tiền bằng 0."
+          }
+        }
+      }
+    },
+    "The amount isn't a valid number." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The amount isn't a valid number."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額が正しい数値ではありません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số tiền không phải là số hợp lệ."
+          }
+        }
+      }
+    },
+    "The amount must be greater than zero." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The amount must be greater than zero."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額は 0 より大きくしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số tiền phải lớn hơn 0."
+          }
+        }
+      }
+    },
+    "The backup contains a transaction whose amounts don't add up." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup contains a transaction whose amounts don't add up."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックアップに金額の合わない取引が含まれています。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản sao lưu có một giao dịch mà các số tiền không khớp nhau."
+          }
+        }
+      }
+    },
+    "The backup contains an invalid value for %@: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup contains an invalid value for %@: %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックアップの %1$@ に無効な値があります：%2$@。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản sao lưu có giá trị không hợp lệ cho %1$@: %2$@."
+          }
+        }
+      }
+    },
+    "The backup contains categories that are their own parent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup contains categories that are their own parent."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックアップに自分自身を親とするカテゴリが含まれています。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản sao lưu có danh mục tự làm danh mục cha của chính nó."
+          }
+        }
+      }
+    },
+    "The backup is incomplete: a %@ it refers to is missing." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup is incomplete: a %@ it refers to is missing."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックアップが不完全です：参照されている %@ がありません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản sao lưu không đầy đủ: thiếu một %@ được tham chiếu."
+          }
+        }
+      }
+    },
+    "The backup is inconsistent: two %@ records share an identifier." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup is inconsistent: two %@ records share an identifier."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックアップに矛盾があります：2 つの %@ レコードが同じ ID を持っています。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản sao lưu không nhất quán: hai bản ghi %@ có cùng mã định danh."
+          }
+        }
+      }
+    },
+    "The currency %@ is not supported." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The currency %@ is not supported."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通貨 %@ には対応していません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không hỗ trợ loại tiền %@."
+          }
+        }
+      }
+    },
+    "The currency can't be changed because a recurring transaction, a budget or a savings goal uses this wallet. Change those first." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The currency can't be changed because a recurring transaction, a budget or a savings goal uses this wallet. Change those first."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定期取引、予算、または貯蓄目標がこの口座を使っているため、通貨を変更できません。先にそれらを変更してください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể đổi tiền tệ vì có giao dịch định kỳ, ngân sách hoặc mục tiêu tiết kiệm đang dùng ví này. Hãy thay đổi chúng trước."
+          }
+        }
+      }
+    },
+    "The currency can't be changed because this goal already has contributions." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The currency can't be changed because this goal already has contributions."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この目標にはすでに入金があるため、通貨を変更できません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể đổi loại tiền vì mục tiêu này đã có tiền để dành."
+          }
+        }
+      }
+    },
+    "The currency can't be changed because this wallet already has transactions." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The currency can't be changed because this wallet already has transactions."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この口座には取引があるため、通貨を変更できません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể đổi loại tiền vì ví này đã có giao dịch."
+          }
+        }
+      }
+    },
+    "The exchange rate must be a positive number between two different currencies." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The exchange rate must be a positive number between two different currencies."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為替レートは、異なる 2 つの通貨間の正の数である必要があります。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tỷ giá phải là số dương giữa hai loại tiền khác nhau."
+          }
+        }
+      }
+    },
+    "The row was rejected." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The row was rejected."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この行は受け付けられませんでした。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dòng này bị từ chối."
+          }
+        }
+      }
+    },
+    "The start date must be before the end date." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The start date must be before the end date."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始日は終了日より前にしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày bắt đầu phải trước ngày kết thúc."
+          }
+        }
+      }
+    },
+    "The wallet is empty." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The wallet is empty."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口座名が空です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có tên ví."
+          }
+        }
+      }
+    },
+    "These wallets use different currencies. Enter the amount that arrives in the destination wallet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These wallets use different currencies. Enter the amount that arrives in the destination wallet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口座の通貨が異なります。入金先の口座に届く金額を入力してください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hai ví dùng loại tiền khác nhau. Hãy nhập số tiền đến ví nhận."
+          }
+        }
+      }
+    },
+    "This backup was made by a newer version of the app. Update the app, then try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This backup was made by a newer version of the app. Update the app, then try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このバックアップは新しいバージョンのアプリで作成されています。アプリをアップデートしてから再度お試しください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản sao lưu này được tạo bởi phiên bản mới hơn của ứng dụng. Hãy cập nhật ứng dụng rồi thử lại."
+          }
+        }
+      }
+    },
+    "This category has sub-categories, so it can't become a sub-category itself." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This category has sub-categories, so it can't become a sub-category itself."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカテゴリにはサブカテゴリがあるため、サブカテゴリにはできません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh mục này có danh mục con nên không thể trở thành danh mục con."
+          }
+        }
+      }
+    },
+    "This category is archived. Restore it or choose another category." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This category is archived. Restore it or choose another category."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカテゴリはアーカイブ済みです。復元するか、別のカテゴリを選んでください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh mục này đã được lưu trữ. Hãy khôi phục hoặc chọn danh mục khác."
+          }
+        }
+      }
+    },
+    "This category is part of a budget. Remove it from the budget or archive the category instead." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This category is part of a budget. Remove it from the budget or archive the category instead."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカテゴリは予算に含まれています。予算から外すか、カテゴリをアーカイブしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh mục này thuộc một ngân sách. Hãy bỏ nó khỏi ngân sách hoặc lưu trữ danh mục."
+          }
+        }
+      }
+    },
+    "This category is used by a budget, a recurring transaction or sub-categories, so it can't switch between income and expense." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This category is used by a budget, a recurring transaction or sub-categories, so it can't switch between income and expense."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカテゴリは予算、定期取引またはサブカテゴリで使われているため、収入と支出を切り替えられません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh mục này đang được dùng bởi ngân sách, giao dịch định kỳ hoặc danh mục con nên không thể chuyển giữa thu nhập và chi tiêu."
+          }
+        }
+      }
+    },
+    "This category is used by transactions, so it can't be deleted. Archive it instead." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This category is used by transactions, so it can't be deleted. Archive it instead."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカテゴリは取引で使われているため削除できません。アーカイブしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh mục này đã có giao dịch nên không thể xoá. Hãy lưu trữ danh mục."
+          }
+        }
+      }
+    },
+    "This category is used by transactions, so it can't switch between income and expense." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This category is used by transactions, so it can't switch between income and expense."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカテゴリは取引で使われているため、収入と支出を切り替えられません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh mục này đã có giao dịch nên không thể chuyển giữa thu và chi."
+          }
+        }
+      }
+    },
+    "This currency allows at most %lld decimal places." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This currency allows at most %lld decimal places."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この通貨で使える小数は %lld 桁までです。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loại tiền này cho phép tối đa %lld chữ số thập phân."
+          }
+        }
+      }
+    },
+    "This currency doesn't use decimals." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This currency doesn't use decimals."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この通貨では小数を使えません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loại tiền này không dùng số thập phân."
+          }
+        }
+      }
+    },
+    "This file can't be read as a backup. It may be damaged." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file can't be read as a backup. It may be damaged."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルはバックアップとして読み込めません。破損している可能性があります。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không đọc được tệp này như một bản sao lưu. Tệp có thể bị hỏng."
+          }
+        }
+      }
+    },
+    "This file has no transactions." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file has no transactions."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルには取引がありません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tệp này không có giao dịch nào."
+          }
+        }
+      }
+    },
+    "This file is missing the column(s) %@. Import works with CSV files exported by this app." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is missing the column(s) %@. Import works with CSV files exported by this app."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルには列 %@ がありません。読み込みはこのアプリで書き出した CSV ファイルで行えます。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tệp này thiếu cột %@. Chức năng nhập dùng cho tệp CSV do ứng dụng này xuất."
+          }
+        }
+      }
+    },
+    "This file is not a Personal Finance backup." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not a Personal Finance backup."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルは Personal Finance のバックアップではありません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tệp này không phải bản sao lưu của Personal Finance."
+          }
+        }
+      }
+    },
+    "This file is not a text CSV file." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not a text CSV file."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルはテキスト形式の CSV ではありません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tệp này không phải tệp CSV dạng văn bản."
+          }
+        }
+      }
+    },
+    "This occurrence has already been recorded." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This occurrence has already been recorded."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この回はすでに記録されています。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lần đến hạn này đã được ghi."
+          }
+        }
+      }
+    },
+    "This record contains data the app doesn't recognise. Nothing was changed." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This record contains data the app doesn't recognise. Nothing was changed."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この記録にはアプリが認識できないデータが含まれています。何も変更されていません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản ghi có dữ liệu mà ứng dụng không nhận ra. Không có gì thay đổi."
+          }
+        }
+      }
+    },
+    "This wallet has transactions, so it can't be deleted. Archive it instead to keep its history." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This wallet has transactions, so it can't be deleted. Archive it instead to keep its history."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この口座には取引があるため削除できません。履歴を残すにはアーカイブしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ví này đã có giao dịch nên không thể xoá. Hãy lưu trữ ví để giữ lại lịch sử."
+          }
+        }
+      }
+    },
+    "This wallet is archived. Restore it before adding or changing its transactions." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This wallet is archived. Restore it before adding or changing its transactions."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この口座はアーカイブ済みです。取引を追加・変更する前に復元してください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ví này đã được lưu trữ. Hãy khôi phục trước khi thêm hoặc sửa giao dịch của ví."
+          }
+        }
+      }
+    },
+    "This wallet uses %@, but the amount is in %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This wallet uses %@, but the amount is in %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この口座の通貨は %1$@ ですが、金額は %2$@ です。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ví này dùng %1$@, nhưng số tiền lại bằng %2$@."
+          }
+        }
+      }
+    },
+    "Transfers between wallets are not available yet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transfers between wallets are not available yet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口座間の振替はまだ利用できません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa hỗ trợ chuyển tiền giữa các ví."
+          }
+        }
+      }
+    },
+    "Type “%@” must be Income, Expense or Transfer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type “%@” must be Income, Expense or Transfer."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "種類「%@」は 収入・支出・振替（または Income・Expense・Transfer）のいずれかにしてください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loại “%@” phải là Thu nhập, Chi tiêu hoặc Chuyển tiền (hoặc Income, Expense, Transfer)."
+          }
+        }
+      }
+    },
+    "Wallet “%@” doesn't use %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wallet “%@” doesn't use %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口座「%1$@」の通貨は %2$@ ではありません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ví “%1$@” không dùng %2$@."
+          }
+        }
+      }
+    },
+    "Wallet “%@” is archived. Restore it first." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wallet “%@” is archived. Restore it first."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口座「%@」はアーカイブ済みです。先に復元してください。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ví “%@” đã được lưu trữ. Hãy khôi phục trước."
+          }
+        }
+      }
+    },
+    "You can't take out more than has been saved for this goal." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can't take out more than has been saved for this goal."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この目標に貯めた金額以上は取り崩せません。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể rút nhiều hơn số đã để dành cho mục tiêu này."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

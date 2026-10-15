@@ -11,7 +11,9 @@ public struct TransactionSummary: Sendable, Equatable, Identifiable {
     /// One wallet for income/expense, two for a transfer.
     public var walletIDs: Set<UUID>
     public var categoryID: UUID?
-    /// Note, merchant, category and wallet names; searched without regard to case or accents.
+    /// The parent of `categoryID` when it is a sub-category.
+    public var parentCategoryID: UUID?
+    /// Note, merchant, category (and parent) and wallet names; searched without regard to case or accents.
     public var searchableText: String
 
     public init(
@@ -22,6 +24,7 @@ public struct TransactionSummary: Sendable, Equatable, Identifiable {
         amount: Money,
         walletIDs: Set<UUID>,
         categoryID: UUID?,
+        parentCategoryID: UUID? = nil,
         searchableText: String
     ) {
         self.id = id
@@ -31,6 +34,7 @@ public struct TransactionSummary: Sendable, Equatable, Identifiable {
         self.amount = amount
         self.walletIDs = walletIDs
         self.categoryID = categoryID
+        self.parentCategoryID = parentCategoryID
         self.searchableText = searchableText
     }
 }
@@ -47,7 +51,8 @@ public enum TransactionSort: String, CaseIterable, Sendable {
 /// Empty sets and nil bounds mean "no filter". Text search splits the query into
 /// words; every word must appear (ignoring case and Vietnamese accents, so "pho"
 /// finds "Phở" and "da" finds "Đá"). Amount bounds are inclusive and compare
-/// major units in each transaction's own currency.
+/// major units in each transaction's own currency. Choosing a category also
+/// matches its sub-categories, as budgets and reports count them.
 public struct TransactionQuery: Sendable, Equatable {
     public var searchText = ""
     public var dayRange: DayRange?
@@ -80,7 +85,9 @@ public struct TransactionQuery: Sendable, Equatable {
         if !kinds.isEmpty, !kinds.contains(summary.kind) { return false }
         if !walletIDs.isEmpty, walletIDs.isDisjoint(with: summary.walletIDs) { return false }
         if !categoryIDs.isEmpty {
-            guard let category = summary.categoryID, categoryIDs.contains(category) else { return false }
+            let parentMatches = summary.parentCategoryID.map { categoryIDs.contains($0) } ?? false
+            guard let category = summary.categoryID, categoryIDs.contains(category) || parentMatches
+            else { return false }
         }
         let amount = summary.amount.majorUnits
         if let minimumAmount, amount < minimumAmount { return false }
